@@ -40,34 +40,53 @@
 
 #include <stdint.h>
 
-#define RTLS_SET_MINLEN 2
-#define RTLS_SET_MAXLEN 4
-
-#define RTLS_STATUS_MINLEN 1
-#define RTLS_STATUS_MAXLEN 3
+#define RTLS_PULSE_SET_LEN 1
+#define RTLS_PRESSURE_SET_LEN 2
+#define RTLS_RSSI_SET_LEN 3
 
 typedef enum
 {
-    RTLS_OPCODE_SET = 0x8202,
-    RTLS_OPCODE_SET_UNACKNOWLEDGED = 0x8203,
-    RTLS_OPCODE_GET = 0x8201,
+    RTLS_OPCODE_PULSE_SET = 0x8202,
+    RTLS_OPCODE_PULSE_SET_UNACKNOWLEDGED = 0x8203,
+    RTLS_OPCODE_PRESSURE_SET = 0x8201,
+    RTLS_OPCODE_PRESSURE_SET_UNACKNOWLEDGED = 0x8205,
+    RTLS_OPCODE_RSSI_SET = 0x8206,
+    RTLS_OPCODE_RSSI_SET_UNACKNOWLEDGED = 0x8207,
     RTLS_OPCODE_STATUS = 0x8204
 } rtls_opcode_t;
 
-typedef struct __attribute((packed))
+typedef union __attribute((packed))
 {
-    uint8_t smartband_id[6];
-    uint8_t smartband_data[3];
-    uint8_t rssi;                                         /**< State to set */
-    uint8_t tid;                                            /**< Transaction number for application */
-    uint8_t delay;                                          /**< Encoded message execution delay in 5 millisecond steps */
+	struct __attribute((packed))
+	{
+		uint8_t pressure_up;
+		uint8_t pressure_down;
+	} pressure;
+
+	struct __attribute((packed))
+	{
+		uint16_t tag_id;
+		uint8_t rssi;
+	} rssi;
+
+	uint8_t pulse;
 } rtls_set_msg_pkt_t;
 
-typedef struct __attribute((packed))
+typedef union __attribute((packed))
 {
-    uint8_t smartband_id[6];
-    uint8_t smartband_data[3];
-    uint8_t rssi;
+	struct __attribute((packed))
+	{
+		uint8_t pressure_up;
+		uint8_t pressure_down;
+	} pressure;
+
+	struct __attribute((packed))
+	{
+		uint16_t tag_id;
+		uint8_t rssi;
+	} rssi;
+
+	uint8_t pulse;
 } rtls_status_msg_pkt_t;
 
 #endif /* RTLS_MESSAGES_H__ */

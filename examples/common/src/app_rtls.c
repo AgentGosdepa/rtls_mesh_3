@@ -51,10 +51,6 @@
  * be implemented.
  */
 
-/* Forward declaration */
-static void rtls_state_get_cb(const rtls_server_t * p_self,
-                                       const access_message_rx_meta_t * p_meta,
-                                       rtls_status_params_t * p_out);
 static void rtls_state_set_cb(const rtls_server_t * p_self,
                                        const access_message_rx_meta_t * p_meta,
                                        const rtls_set_params_t * p_in,
@@ -63,37 +59,10 @@ static void rtls_state_set_cb(const rtls_server_t * p_self,
 
 const rtls_server_callbacks_t rtls_srv_cbs =
 {
-    .rtls_cbs.set_cb = rtls_state_set_cb,
-    .rtls_cbs.get_cb = rtls_state_get_cb
+    .rtls_cbs.set_cb = rtls_state_set_cb
 };
 
 /***** Generic rtls model interface callbacks *****/
-
-static void rtls_state_get_cb(const rtls_server_t * p_self,
-                                       const access_message_rx_meta_t * p_meta,
-                                       rtls_status_params_t * p_out)
-{
-    __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "msg: GET \n");
-
-    app_rtls_server_t   * p_app = PARENT_BY_FIELD_GET(app_rtls_server_t, server, p_self);
-
-    /* Requirement: Provide the current value of the rtls state */
-    const uint8_t set_len = 10;
-    uint8_t set_data[10] = {0};
-    p_app->rtls_get_cb(p_app, set_data, set_len);
-
-    for(int i = 0; i < 6; i++)
-      p_app->state.smartband_id[i] = set_data[i];
-    for(int i = 6; i < 9; i++)
-      p_app->state.smartband_data[i-6] = set_data[i];
-    p_app->state.rssi = set_data[9];
-
-    for(int i = 0; i < 6; i++)
-      p_out->smartband_id[i] = p_app->state.smartband_id[i]; 
-    for(int i = 0; i < 3; i++)
-      p_out->smartband_data[i] = p_app->state.smartband_data[i];
-    p_out->rssi = p_app->state.rssi;
-}
 
 static void rtls_state_set_cb(const rtls_server_t * p_self,
                                        const access_message_rx_meta_t * p_meta,
@@ -102,54 +71,29 @@ static void rtls_state_set_cb(const rtls_server_t * p_self,
                                        rtls_status_params_t * p_out)
 {
     app_rtls_server_t   * p_app = PARENT_BY_FIELD_GET(app_rtls_server_t, server, p_self);
-
-    const uint8_t set_len = 10;
-    uint8_t set_data[10] = {0};
-
-    for(int i = 0; i < 6; i++)
-      set_data[i] = p_in->smartband_id[i];
-    for(int i = 0; i < 3; i++)
-      set_data[i+6] = p_in->smartband_data[i];
-    set_data[9] = p_in->rssi;
-
-    p_app->rtls_set_cb(p_app, set_data, set_len);
+    p_app->rtls_set_cb(p_app, p_in, p_meta);
 
     /* Prepare response */
     if (p_out != NULL)
     {
-      for(int i = 0; i < 6; i++)
-        p_out->smartband_id[i] = p_app->state.smartband_id[i]; 
-      for(int i = 0; i < 3; i++)
-        p_out->smartband_data[i] = p_app->state.smartband_data[i];
-      p_out->rssi = p_app->state.rssi;
+      if (p_in->type == RTLS_PULSE_TYPE)
+      {
+          p_out->pulse = p_in->pulse;
+      }
+      else if (p_in->type == RTLS_PRESSURE_TYPE)
+      {
+          p_out->pressure.pressure_up = p_in->pressure.pressure_up;
+          p_out->pressure.pressure_down = p_in->pressure.pressure_down;
+      }
+      else if (p_in->type == RTLS_RSSI_TYPE)
+      {
+          p_out->rssi.rssi = p_in->rssi.rssi;
+          p_out->rssi.tag_id = p_in->rssi.tag_id;
+      }
     }
 }
 
 /***** Interface functions *****/
-
-void app_rtls_status_publish(app_rtls_server_t * p_app)
-{
-    const uint8_t set_len = 10;
-    uint8_t set_data[10] = {0};
-    p_app->rtls_get_cb(p_app, set_data, set_len);
-
-    for(int i = 0; i < 6; i++)
-      p_app->state.smartband_id[i] = set_data[i];
-    for(int i = 6; i < 9; i++)
-      p_app->state.smartband_data[i-6] = set_data[i];
-    p_app->state.rssi = set_data[9];
-
-
-    rtls_status_params_t status;
-    for(int i = 0; i < 6; i++)
-      status.smartband_id[i] = p_app->state.smartband_id[i];
-    
-    for(int i = 0; i < 3; i++)
-      status.smartband_data[i] = p_app->state.smartband_data[i];
-
-    status.rssi = p_app->state.rssi;
-    (void) rtls_server_status_publish(&p_app->server, &status);
-}
 
 uint32_t app_rtls_init(app_rtls_server_t * p_app, uint8_t element_index)
 {
@@ -161,8 +105,7 @@ uint32_t app_rtls_init(app_rtls_server_t * p_app, uint8_t element_index)
     }
 
     p_app->server.settings.p_callbacks = &rtls_srv_cbs;
-    if ( (p_app->rtls_get_cb == NULL) ||
-         ( (p_app->rtls_set_cb == NULL) ) )
+    if ( (p_app->rtls_set_cb == NULL)  )
     {
         return NRF_ERROR_NULL;
     }

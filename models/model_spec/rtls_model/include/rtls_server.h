@@ -53,14 +53,9 @@ typedef void (*rtls_state_set_cb_t)(const rtls_server_t * p_self,
                                              const model_transition_t * p_in_transition,
                                              rtls_status_params_t * p_out);
 
-typedef void (*rtls_state_get_cb_t)(const rtls_server_t * p_self,
-                                             const access_message_rx_meta_t * p_meta,
-                                             rtls_status_params_t * p_out);
-
 typedef struct
 {
     rtls_state_set_cb_t    set_cb;
-    rtls_state_get_cb_t    get_cb;
 } rtls_server_state_cbs_t;
 
 typedef struct
@@ -78,7 +73,6 @@ typedef struct
 struct __rtls_server_t
 {
     access_model_handle_t model_handle;
-    tid_tracker_t tid_tracker;
     rtls_server_settings_t settings;
 };
 

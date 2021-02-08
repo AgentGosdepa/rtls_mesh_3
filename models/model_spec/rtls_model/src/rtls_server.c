@@ -55,22 +55,31 @@ static uint32_t status_send(rtls_server_t * p_server,
                             const rtls_status_params_t * p_params)
 {
     rtls_status_msg_pkt_t msg_pkt;
+    uint16_t length = 0;
 
-    for(uint8_t i = 0; i < 6; i++)
+    if (p_params->type == RTLS_PULSE_TYPE)
     {
-        msg_pkt.smartband_id[i] = p_params->smartband_id[i];
+        msg_pkt.pulse = p_params->pulse;
+        length = RTLS_PULSE_SET_LEN;
     }
-    for(uint8_t i = 0; i < 3; i++)
+    else if (p_params->type == RTLS_PRESSURE_TYPE)
     {
-        msg_pkt.smartband_data[i] = p_params->smartband_data[i];
+        msg_pkt.pressure.pressure_up = p_params->pressure.pressure_up;
+        msg_pkt.pressure.pressure_down = p_params->pressure.pressure_down;
+        length = RTLS_PRESSURE_SET_LEN;
     }
-    msg_pkt.rssi = p_params->rssi;
+    else if (p_params->type == RTLS_RSSI_TYPE)
+    {
+        msg_pkt.rssi.rssi = p_params->rssi.rssi;
+        msg_pkt.rssi.tag_id = p_params->rssi.tag_id;
+        length = RTLS_RSSI_SET_LEN;
+    }
 
     access_message_tx_t reply =
     {
         .opcode = ACCESS_OPCODE_SIG(RTLS_OPCODE_STATUS),
         .p_buffer = (const uint8_t *) &msg_pkt,
-        .length = 10, // TODO .length = p_params->msg_len
+        .length = length,
         .force_segmented = p_server->settings.force_segmented,
         .transmic_size = p_server->settings.transmic_size
     };
@@ -87,11 +96,6 @@ static uint32_t status_send(rtls_server_t * p_server,
 
 /** Opcode Handlers */
 
-static inline bool set_params_validate(const access_message_rx_t * p_rx_msg, const rtls_set_msg_pkt_t * p_params)
-{
-    return (p_rx_msg->length >= 0 || p_rx_msg->length <= 121); //min and max length
-}
-
 static void handle_set(access_model_handle_t model_handle, const access_message_rx_t * p_rx_msg, void * p_args)
 {
     rtls_server_t * p_server = (rtls_server_t *) p_args;
@@ -99,57 +103,46 @@ static void handle_set(access_model_handle_t model_handle, const access_message_
     rtls_status_params_t out_data = {0};
     rtls_set_msg_pkt_t * p_msg_params_packed = (rtls_set_msg_pkt_t *) p_rx_msg->p_data;
 
-    if (set_params_validate(p_rx_msg, p_msg_params_packed))
+    if (p_rx_msg->length == RTLS_PULSE_SET_LEN)
     {
-        for(uint8_t i = 0; i < 6; i++)
-        {
-            in_data.smartband_id[i] = p_msg_params_packed->smartband_id[i];
-        }
-        for(uint8_t i = 0; i < 3; i++)
-        {
-            in_data.smartband_data[i] = p_msg_params_packed->smartband_data[i];
-        }
-        in_data.rssi = p_msg_params_packed->rssi;
-        in_data.tid = p_msg_params_packed->tid;
-
-        if (model_tid_validate(&p_server->tid_tracker, &p_rx_msg->meta_data, RTLS_OPCODE_SET, in_data.tid))
-        {
-            p_server->settings.p_callbacks->rtls_cbs.set_cb(p_server,
-                                                            &p_rx_msg->meta_data,
-                                                            &in_data,
-                                                            NULL,
-                                                            (p_rx_msg->opcode.opcode == 121) ? &out_data : NULL);
-
-            if (p_rx_msg->opcode.opcode == RTLS_OPCODE_SET)
-            {
-                (void) status_send(p_server, p_rx_msg, &out_data);
-            }
-        }
+        in_data.pulse = p_msg_params_packed->pulse;
+        in_data.type = RTLS_PULSE_TYPE;
     }
-}
-
-static inline bool get_params_validate(const access_message_rx_t * p_rx_msg)
-{
-    return (p_rx_msg->length > 0); //TODO: len calc
-}
-
-static void handle_get(access_model_handle_t model_handle, const access_message_rx_t * p_rx_msg, void * p_args)
-{
-    rtls_server_t * p_server = (rtls_server_t *) p_args;
-    rtls_status_params_t out_data = {0};
-
-    if (get_params_validate(p_rx_msg))
+    else if (p_rx_msg->length == RTLS_PRESSURE_SET_LEN)
     {
-        p_server->settings.p_callbacks->rtls_cbs.get_cb(p_server, &p_rx_msg->meta_data, &out_data);
+        in_data.pressure.pressure_up = p_msg_params_packed->pressure.pressure_up;
+        in_data.pressure.pressure_down = p_msg_params_packed->pressure.pressure_down;
+        in_data.type = RTLS_PRESSURE_TYPE;
+    }
+    else if (p_rx_msg->length == RTLS_RSSI_SET_LEN)
+    {
+        in_data.rssi.rssi = p_msg_params_packed->rssi.rssi;
+        in_data.rssi.tag_id = p_msg_params_packed->rssi.tag_id;
+        in_data.type = RTLS_RSSI_TYPE;
+    }
+
+    //__LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Current opcode: %x\n", p_rx_msg->opcode.opcode);
+
+    p_server->settings.p_callbacks->rtls_cbs.set_cb(p_server, &p_rx_msg->meta_data,
+                            &in_data, NULL, (p_rx_msg->opcode.opcode == RTLS_OPCODE_PULSE_SET) 
+                            || (p_rx_msg->opcode.opcode == RTLS_OPCODE_PRESSURE_SET) 
+                            || (p_rx_msg->opcode.opcode == RTLS_OPCODE_RSSI_SET) ? &out_data : NULL);
+
+    if ( (p_rx_msg->opcode.opcode == RTLS_OPCODE_PULSE_SET) || (p_rx_msg->opcode.opcode == RTLS_OPCODE_PRESSURE_SET) 
+        || (p_rx_msg->opcode.opcode == RTLS_OPCODE_RSSI_SET))
+    {
         (void) status_send(p_server, p_rx_msg, &out_data);
     }
 }
 
 static const access_opcode_handler_t m_opcode_handlers[] =
 {
-    {ACCESS_OPCODE_SIG(RTLS_OPCODE_SET), handle_set},
-    {ACCESS_OPCODE_SIG(RTLS_OPCODE_SET_UNACKNOWLEDGED), handle_set},
-    {ACCESS_OPCODE_SIG(RTLS_OPCODE_GET), handle_get},
+    {ACCESS_OPCODE_SIG(RTLS_OPCODE_PULSE_SET), handle_set},
+    {ACCESS_OPCODE_SIG(RTLS_OPCODE_PULSE_SET_UNACKNOWLEDGED), handle_set},
+    {ACCESS_OPCODE_SIG(RTLS_OPCODE_PRESSURE_SET), handle_set},
+    {ACCESS_OPCODE_SIG(RTLS_OPCODE_PRESSURE_SET_UNACKNOWLEDGED), handle_set},
+    {ACCESS_OPCODE_SIG(RTLS_OPCODE_RSSI_SET), handle_set},
+    {ACCESS_OPCODE_SIG(RTLS_OPCODE_RSSI_SET_UNACKNOWLEDGED), handle_set},
 };
 
 
@@ -158,8 +151,7 @@ uint32_t rtls_server_init(rtls_server_t * p_server, uint8_t element_index)
 {
     if (p_server == NULL ||
         p_server->settings.p_callbacks == NULL ||
-        p_server->settings.p_callbacks->rtls_cbs.set_cb == NULL ||
-        p_server->settings.p_callbacks->rtls_cbs.get_cb == NULL )
+        p_server->settings.p_callbacks->rtls_cbs.set_cb == NULL)
     {
         return NRF_ERROR_NULL;
     }

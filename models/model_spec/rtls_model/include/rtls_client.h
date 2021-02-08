@@ -56,7 +56,6 @@ typedef struct
 {
     rtls_state_status_cb_t rtls_status_cb;
     access_reliable_cb_t ack_transaction_status_cb;
-    access_publish_timeout_cb_t periodic_publish_cb;
 } rtls_client_callbacks_t;
 
 typedef struct
@@ -82,12 +81,11 @@ struct __rtls_client_t
 
 uint32_t rtls_client_init(rtls_client_t * p_client, uint8_t element_index);
 
+
 uint32_t rtls_client_set(rtls_client_t * p_client, const rtls_set_params_t * p_params,
                                   const model_transition_t * p_transition);
 
 uint32_t rtls_client_set_unack(rtls_client_t * p_client, const rtls_set_params_t * p_params,
                                         const model_transition_t * p_transition, uint8_t repeats);
-
-uint32_t rtls_client_get(rtls_client_t * p_client);
 
 #endif /* RTLS_CLIENT_H__ */

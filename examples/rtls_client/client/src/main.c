@@ -78,25 +78,18 @@
 /*****************************************************************************
  * Definitions
  *****************************************************************************/
-#define APP_STATE_OFF                (0)
-#define APP_STATE_ON                 (1)
-
 #define APP_UNACK_MSG_REPEAT_COUNT   (2)
 
 /* Controls if the model instance should force all mesh messages to be segmented messages. */
 #define APP_FORCE_SEGMENTATION       (false)
 /* Controls the MIC size used by the model instance for sending the mesh messages. */
 #define APP_MIC_SIZE                 (NRF_MESH_TRANSMIC_SIZE_SMALL)
-/* Delay value used by the OnOff client for sending OnOff Set messages. */
-#define APP_ONOFF_DELAY_MS           (50)
-/* Transition time value used by the OnOff client for sending OnOff Set messages. */
-#define APP_ONOFF_TRANSITION_TIME_MS (100)
+
 
 
 /*****************************************************************************
  * Forward declaration of static functions
  *****************************************************************************/
-static void app_gen_onoff_client_publish_interval_cb(access_model_handle_t handle, void * p_self);
 static void app_generic_onoff_client_status_cb(const rtls_client_t * p_self,
                                                const access_message_rx_meta_t * p_meta,
                                                const rtls_status_params_t * p_in);
@@ -108,14 +101,13 @@ static void app_gen_onoff_client_transaction_status_cb(access_model_handle_t mod
 /*****************************************************************************
  * Static variables
  *****************************************************************************/
-static rtls_client_t m_clients[2];
+static rtls_client_t m_clients[1];
 static bool                   m_device_provisioned;
 
 const rtls_client_callbacks_t client_cbs =
 {
     .rtls_status_cb = app_generic_onoff_client_status_cb,
-    .ack_transaction_status_cb = app_gen_onoff_client_transaction_status_cb,
-    .periodic_publish_cb = app_gen_onoff_client_publish_interval_cb
+    .ack_transaction_status_cb = app_gen_onoff_client_transaction_status_cb
 };
 
 static void device_identification_start_cb(uint8_t attention_duration_s)
@@ -155,12 +147,6 @@ static void provisioning_complete_cb(void)
     hal_led_blink_ms(LEDS_MASK, LED_BLINK_INTERVAL_MS, LED_BLINK_CNT_PROV);
 }
 
-/* This callback is called periodically if model is configured for periodic publishing */
-static void app_gen_onoff_client_publish_interval_cb(access_model_handle_t handle, void * p_self)
-{
-     __LOG(LOG_SRC_APP, LOG_LEVEL_WARN, "Publish desired message here.\n");
-}
-
 /* Acknowledged transaction status callback, if acknowledged transfer fails, application can
 * determine suitable course of action (e.g. re-initiate previous transaction) by using this
 * callback.
@@ -195,8 +181,20 @@ static void app_generic_onoff_client_status_cb(const rtls_client_t * p_self,
                                                const access_message_rx_meta_t * p_meta,
                                                const rtls_status_params_t * p_in)
 {
-    __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "OnOff server: 0x%04x, Present OnOff: %d\n",
-        p_meta->src.value, p_in->rssi);
+    if (p_in->type == RTLS_PULSE_TYPE)
+    {
+        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: 0x%x, to: 0x%x complete.\n", p_in->pulse, p_meta->src.value);
+    }
+    else if (p_in->type == RTLS_PRESSURE_TYPE)
+    {
+        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: 0x%x|0x%x to: 0x%x complete.\n", p_in->pressure.pressure_up, 
+                                            p_in->pressure.pressure_down, p_meta->src.value);
+    }
+    else if (p_in->type == RTLS_RSSI_TYPE)
+    {
+        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: rssi = 0x%x addr = 0x%x to: 0x%x complete.\n", p_in->rssi.rssi,
+                                            p_in->rssi.tag_id, p_meta->src.value);
+    }
 }
 
 static void node_reset(void)
@@ -218,11 +216,6 @@ static void config_server_evt_cb(const config_server_evt_t * p_evt)
 #if NRF_MESH_LOG_ENABLE
 static const char m_usage_string[] =
     "\n"
-    "\t\t------------------------------------------------------------------------------------\n"
-    "\t\t Button/RTT 1) Send a message to the odd group (address: 0xC003) to turn on LED 1.\n"
-    "\t\t Button/RTT 2) Send a message to the odd group (address: 0xC003) to turn off LED 1.\n"
-    "\t\t Button/RTT 3) Send a message to the even group (address: 0xC002) to turn on LED 1.\n"
-    "\t\t Button/RTT 4) Send a message to the even group (address: 0xC002) to turn off LED 1.\n"
     "\t\t------------------------------------------------------------------------------------\n";
 #endif
 
@@ -234,72 +227,62 @@ static void button_event_handler(uint32_t button_number)
 
     uint32_t status = NRF_SUCCESS;
     rtls_set_params_t set_params;
-    model_transition_t transition_params;
-    static uint8_t tid = 0;
-    
     
     switch(button_number)
     {
         case 1:
+            set_params.type = RTLS_PULSE_TYPE;
+            set_params.pulse = 0xFB;
+            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: 0x%x start.\n", set_params.pulse);
             break;
 
         case 2:
-            set_params.smartband_id[0] = 0xAE;
-            set_params.smartband_id[1] = 0xAA;
-            set_params.smartband_id[2] = 0xAA;
-            set_params.smartband_id[3] = 0xAA;
-            set_params.smartband_id[4] = 0xAA;
-            set_params.smartband_id[5] = 0xFF;
-
-            set_params.smartband_data[0] = 0xDE;
-            set_params.smartband_data[1] = 0xAD;
-            set_params.smartband_data[2] = 0xB1;
-            set_params.rssi = 136;
+            set_params.type = RTLS_PRESSURE_TYPE;
+            set_params.pressure.pressure_up = 0xB2;
+            set_params.pressure.pressure_down = 0x2B;
+            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: 0x%x|0x%x start.\n", set_params.pressure.pressure_up, 
+                                            set_params.pressure.pressure_down);
             break;
 
         case 3:
+            set_params.type = RTLS_RSSI_TYPE;
+            set_params.rssi.rssi = 0xC6;
+            set_params.rssi.tag_id = 0xA6F6;
+            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: rssi = 0x%x addr = 0x%x start.\n", set_params.rssi.rssi,
+                                            set_params.rssi.tag_id);
             break;
         case 4:
-            set_params.smartband_id[0] = 0xBB;
-            set_params.smartband_id[1] = 0xBB;
-            set_params.smartband_id[2] = 0xBB;
-            set_params.smartband_id[3] = 0xAA;
-            set_params.smartband_id[4] = 0xAA;
-            set_params.smartband_id[5] = 0xAA;
-
-            set_params.smartband_data[0] = 0xDE;
-            set_params.smartband_data[1] = 0xAD;
-            set_params.smartband_data[2] = 0xB2;
-            set_params.rssi = 51;
+            set_params.type = RTLS_RSSI_TYPE;
+            set_params.rssi.rssi = 0xAA;
+            set_params.rssi.tag_id = 0xBDBD;
+            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: rssi = 0x%x addr = 0x%x start.\n", set_params.rssi.rssi,
+                                            set_params.rssi.tag_id);
             break;
     }
-
-    set_params.tid = tid++;
-    transition_params.delay_ms = APP_ONOFF_DELAY_MS;
-    transition_params.transition_time_ms = APP_ONOFF_TRANSITION_TIME_MS;
-    __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Sending msg: ONOFF SET %d\n", set_params.rssi);
-    __LOG_XB(LOG_SRC_APP, LOG_LEVEL_INFO, "Sending msg: ONOFF SET\n", set_params.smartband_id, 6);
 
     switch (button_number)
     {
         case 1:
+            status = rtls_client_set_unack(&m_clients[0], &set_params, NULL, 2);
+            hal_led_blink_ms(BSP_LED_3, 200, 2);
             break;
 
         case 2:
-            /* Demonstrate acknowledged transaction, using 1st client model instance */
-            /* In this examples, users will not be blocked if the model is busy */
-            (void)access_model_reliable_cancel(m_clients[1].model_handle);
-            status = rtls_client_set(&m_clients[1], &set_params, &transition_params);
-            hal_led_pin_set(BSP_LED_0, set_params.rssi % 2);
+            (void)access_model_reliable_cancel(m_clients[0].model_handle);
+            status = rtls_client_set(&m_clients[0], &set_params, NULL);
+            hal_led_blink_ms(BSP_LED_3, 200, 2);
             break;
 
         case 3:
+            status = rtls_client_set_unack(&m_clients[0], &set_params, NULL, 2);
+            hal_led_blink_ms(BSP_LED_3, 200, 2);
+
             break;
         case 4:
-            /* Demonstrate un-acknowledged transaction, using 2nd client model instance */
-            status = rtls_client_set_unack(&m_clients[0], &set_params,
-                                                    &transition_params, APP_UNACK_MSG_REPEAT_COUNT);
-            hal_led_pin_set(BSP_LED_1, set_params.rssi % 2);
+            (void)access_model_reliable_cancel(m_clients[0].model_handle);
+            status = rtls_client_set(&m_clients[0], &set_params, NULL);
+            hal_led_blink_ms(BSP_LED_3, 200, 2);
+
             break;
         default:
             __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, m_usage_string);
@@ -352,14 +335,14 @@ static void models_init_cb(void)
 {
     __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Initializing and adding models\n");
 
-    for (uint32_t i = 0; i < 2; ++i)
+    for (uint32_t i = 0; i < 1; ++i)
     {
         m_clients[i].settings.p_callbacks = &client_cbs;
         m_clients[i].settings.timeout = 0;
         m_clients[i].settings.force_segmented = APP_FORCE_SEGMENTATION;
         m_clients[i].settings.transmic_size = APP_MIC_SIZE;
 
-        ERROR_CHECK(rtls_client_init(&m_clients[i], i + 1));
+        ERROR_CHECK(rtls_client_init(&m_clients[i], i));
     }
 }
 
@@ -390,6 +373,7 @@ static void mesh_init(void)
 
 static void initialize(void)
 {
+    //__LOG_INIT(0, 0, LOG_CALLBACK_DEFAULT);
     //__LOG_INIT(LOG_SRC_APP | LOG_SRC_ACCESS | LOG_SRC_BEARER, LOG_LEVEL_INFO | LOG_LEVEL_DBG1, LOG_CALLBACK_DEFAULT);
     __LOG_INIT(LOG_SRC_APP | LOG_SRC_FRIEND, LOG_LEVEL_DBG1, LOG_CALLBACK_DEFAULT);
     __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "----- BLE Mesh Light Switch Client Demo -----\n");
@@ -438,8 +422,6 @@ static void start(void)
     mesh_app_uuid_print(nrf_mesh_configure_device_uuid_get());
 
     ERROR_CHECK(mesh_stack_start());
-
-    __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, m_usage_string);
 
     hal_led_mask_set(LEDS_MASK, LED_MASK_STATE_OFF);
     hal_led_blink_ms(LEDS_MASK, LED_BLINK_INTERVAL_MS, LED_BLINK_CNT_START);

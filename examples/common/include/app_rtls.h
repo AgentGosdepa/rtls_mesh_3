@@ -91,32 +91,39 @@
  * @param[in] _get_cb               Callback for reading the state from the application.
  * @param[in] _transition_cb        Callback for setting the application transition time and state value to given values.
 */
-#define APP_RTLS_SERVER_DEF(_name, _force_segmented, _mic_size, _set_cb, _get_cb)  \
+#define APP_RTLS_SERVER_DEF(_name, _force_segmented, _mic_size, _set_cb)  \
     APP_TIMER_DEF(_name ## _timer); \
     static app_rtls_server_t _name =  \
     {  \
         .server.settings.force_segmented = _force_segmented,  \
         .server.settings.transmic_size = _mic_size,  \
         .rtls_set_cb = _set_cb,  \
-        .rtls_get_cb = _get_cb  \
     };
 
 
 /** Internal structure to hold state and timing information. */
-typedef struct
+typedef union
 {
-        uint8_t smartband_id[6];
-	uint8_t smartband_data[3];
-	uint8_t rssi;
+    struct
+    {
+        uint8_t pressure_up;
+        uint8_t pressure_down;
+    } pressure;
+
+    struct
+    {
+        uint16_t tag_id;
+        uint8_t rssi;
+    } rssi;
+
+    uint8_t pulse;
 } app_rtls_state_t;
 
 /* Forward declaration */
 typedef struct __app_rtls_server_t app_rtls_server_t;
 
-typedef void (*app_rtls_set_cb_t)(const app_rtls_server_t * p_app, uint8_t * set_data, uint8_t set_len);
-
-typedef void (*app_rtls_get_cb_t)(const app_rtls_server_t * p_app, uint8_t * set_data, uint8_t set_len);
-
+typedef void (*app_rtls_set_cb_t)(const app_rtls_server_t * p_app, const rtls_set_params_t * set_data, 
+                                                            const access_message_rx_meta_t * p_meta);
 
 /** Application level structure holding the OnOff server model context and OnOff state representation */
 struct __app_rtls_server_t
@@ -127,9 +134,6 @@ struct __app_rtls_server_t
     app_timer_id_t const * p_timer_id;
     /** Callaback to be called for informing the user application to update the value*/
     app_rtls_set_cb_t  rtls_set_cb;
-    /** Callback to be called for requesting current value from the user application */
-    app_rtls_get_cb_t rtls_get_cb;
-    /** Callaback to be called for informing the user application to update the value*/
 
     /** Internal variable. Representation of the OnOff state related data and transition parameters
      *  required for behavioral implementation, and for communicating with the application */
@@ -140,19 +144,6 @@ struct __app_rtls_server_t
      * OnOff value */
     bool value_updated;
 };
-
-/** Initiates value fetch from the user application by calling a get callback, updates internal
- * state, and publishes the Generic OnOff Status message.
- *
- * This API must always be called by an application when user initiated action (e.g. button press)
- * results in the local OnOff state change. This API should never be called from transition
- * callback. @tagMeshSp mandates that, every local state change must be
- * published if model publication state is configured. If model publication is not configured this
- * API call will not generate any error condition.
- *
- * @param[in] p_app             Pointer to [app_onoff_server_t](@ref __app_onoff_server_t) context.
- */
-void app_rtls_status_publish(app_rtls_server_t * p_app);
 
 /** Initializes the behavioral module for the generic OnOff model
  *

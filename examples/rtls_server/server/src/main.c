@@ -63,6 +63,7 @@
 /* Logging and RTT */
 #include "log.h"
 #include "rtt_input.h"
+#include "nrf_mesh_serial.h"
 
 /* Example specific includes */
 #include "app_rtls.h"
@@ -87,9 +88,8 @@
 /*****************************************************************************
  * Forward declaration of static functions
  *****************************************************************************/
-static void app_rtls_server_set_cb(const app_rtls_server_t * p_app, uint8_t * set_data, uint8_t set_len);
-static void app_rtls_server_get_cb(const app_rtls_server_t * p_app, uint8_t * set_data, uint8_t set_len);
-
+static void app_rtls_server_set_cb(const app_rtls_server_t * p_app, const rtls_set_params_t * set_data,
+                                                                const access_message_rx_meta_t * p_meta);
 
 /*****************************************************************************
  * Static variables
@@ -100,20 +100,52 @@ static bool m_device_provisioned;
 APP_RTLS_SERVER_DEF(m_rtls_server_0,
                      APP_FORCE_SEGMENTATION,
                      APP_MIC_SIZE,
-                     app_rtls_server_set_cb,
-                     app_rtls_server_get_cb)
+                     app_rtls_server_set_cb)
 
+static uint8_t uart_buff[6];
+static uint8_t uart_len;
 /* Callback for updating the hardware state */
-static void app_rtls_server_set_cb(const app_rtls_server_t * p_app, uint8_t * set_data, uint8_t set_len)
+static void app_rtls_server_set_cb(const app_rtls_server_t * p_app, const rtls_set_params_t * set_data, 
+                                                                const access_message_rx_meta_t * p_meta)
 {
-    __LOG_XB(LOG_SRC_APP, LOG_LEVEL_INFO, "app_rtls_server_set_cb msg: \n", set_data, set_len);
-}
-
-/* Callback for reading the hardware state */
-static void app_rtls_server_get_cb(const app_rtls_server_t * p_app, uint8_t * set_data, uint8_t set_len)
-{
-    
-    __LOG_XB(LOG_SRC_APP, LOG_LEVEL_INFO, "app_rtls_server_get_cb msg: \n", set_data, set_len);
+    //__LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "current type %x.\n", set_data->type);
+    if (set_data->type == RTLS_PULSE_TYPE)
+    {
+        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Coming data: type - 0x%x, 0x%x from: 0x%x complete.\n", set_data->type, set_data->pulse, p_meta->src.value);
+        uart_buff[0] = set_data->type;
+        uart_buff[1] = set_data->pulse;
+        uart_buff[3] = (p_meta->src.value & 0xFF);
+        uart_buff[2] = ((p_meta->src.value >> 8) & 0xFF);
+        uart_len = 4;
+    }
+    else if (set_data->type == RTLS_PRESSURE_TYPE)
+    {
+        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Coming data: type - 0x%x, 0x%x|0x%x from: 0x%x complete.\n", 
+                                            set_data->type, set_data->pressure.pressure_up, set_data->pressure.pressure_down, p_meta->src.value);
+        uart_buff[0] = set_data->type;
+        uart_buff[1] = set_data->pressure.pressure_up;
+        uart_buff[2] = set_data->pressure.pressure_down;
+        uart_buff[4] = (p_meta->src.value & 0xFF);
+        uart_buff[3] = ((p_meta->src.value >> 8) & 0xFF);
+        uart_len = 5;
+    }
+    else if (set_data->type == RTLS_RSSI_TYPE)
+    {
+        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Coming data: type - 0x%x, rssi = 0x%x addr = 0x%x from: 0x%x complete.\n", 
+                                            set_data->type, set_data->rssi.rssi, set_data->rssi.tag_id, p_meta->src.value);
+        uart_buff[0] = set_data->type;
+        uart_buff[1] = set_data->rssi.rssi;
+        uart_buff[3] = (set_data->rssi.tag_id & 0xFF);
+        uart_buff[2] = ((set_data->rssi.tag_id >> 8) & 0xFF);
+        uart_buff[5] = (p_meta->src.value & 0xFF);
+        uart_buff[4] = ((p_meta->src.value >> 8) & 0xFF);
+        uart_len = 6;
+    }
+    else
+    {
+        NRF_MESH_ASSERT(0);
+    }
+    nrf_mesh_serial_tx(uart_buff, uart_len);
 }
 
 static void app_model_init(void)
@@ -144,11 +176,6 @@ static void config_server_evt_cb(const config_server_evt_t * p_evt)
 #if NRF_MESH_LOG_ENABLE
 static const char m_usage_string[] =
     "\n"
-    "\t\t-------------------------------------------------------------------------------\n"
-    "\t\t Button/RTT 1) GET RSSI-1.\n"
-    "\t\t Button/RTT 2) GET RSSI-2.\n"
-    "\t\t Button/RTT 3) GET RSSI-1.\n"
-    "\t\t Button/RTT 4) Clear all the states to reset the node.\n"
     "\t\t-------------------------------------------------------------------------------\n";
 #endif
 
@@ -163,12 +190,7 @@ static void button_event_handler(uint32_t button_number)
         the STATUS message to inform client about the state change. This is a demonstration of
         state change publication due to local event. */
         case 1:
-        {
-            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "User action \n");
-            hal_led_pin_set(RTLS_SERVER_0_LED, !hal_led_pin_get(RTLS_SERVER_0_LED));
-            app_rtls_status_publish(&m_rtls_server_0);
             break;
-        }
 
         /* Initiate node reset */
         case 4:
@@ -176,9 +198,9 @@ static void button_event_handler(uint32_t button_number)
             /* Clear all the states to reset the node. */
             if (mesh_stack_is_device_provisioned())
             {
-#if MESH_FEATURE_GATT_PROXY_ENABLED
+                #if MESH_FEATURE_GATT_PROXY_ENABLED
                 (void) proxy_stop();
-#endif
+                #endif
                 mesh_stack_config_clear();
                 node_reset();
             }
@@ -274,10 +296,12 @@ static void mesh_init(void)
         default:
             ERROR_CHECK(status);
     }
+    ERROR_CHECK(nrf_mesh_serial_init(NULL));
 }
 
 static void initialize(void)
 {
+    //__LOG_INIT(0, 0, LOG_CALLBACK_DEFAULT);
     //__LOG_INIT(LOG_SRC_APP | LOG_SRC_ACCESS | LOG_SRC_BEARER, LOG_LEVEL_INFO | LOG_LEVEL_DBG1, LOG_CALLBACK_DEFAULT);
     __LOG_INIT(LOG_SRC_APP | LOG_SRC_FRIEND, LOG_LEVEL_DBG1, LOG_CALLBACK_DEFAULT);
     __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "----- BLE Mesh Light Switch Server Demo -----\n");
@@ -323,6 +347,7 @@ static void start(void)
         unicast_address_print();
     }
 
+    ERROR_CHECK(nrf_mesh_serial_enable());
     mesh_app_uuid_print(nrf_mesh_configure_device_uuid_get());
 
     ERROR_CHECK(mesh_stack_start());

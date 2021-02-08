@@ -44,27 +44,65 @@
 #define RTLS_COMPANY_ID 0xFFFF
 #define RTLS_MAX        (0x01)
 
+#define RTLS_PULSE_TYPE 1
+#define RTLS_PRESSURE_TYPE 2
+#define RTLS_RSSI_TYPE 3
+
 typedef struct
 {
-	uint8_t smartband_id[6];
-	uint8_t smartband_data[3];
-	uint8_t rssi;
-    uint8_t tid;                                            /**< Transaction ID */
+	struct
+	{
+		uint8_t pressure_up;
+		uint8_t pressure_down;
+	} pressure;
+
+	struct
+	{
+		uint16_t tag_id;
+		uint8_t rssi;
+	} rssi;
+
+	uint8_t pulse;
 } rtls_state_t;
 
 typedef struct
 {
-	uint8_t smartband_id[6];
-	uint8_t smartband_data[3];
-	uint8_t rssi;                                            /**< State to set */
-    uint8_t tid;                                            /**< Transaction ID */
+	union
+	{
+		struct
+		{
+			uint8_t pressure_up;
+			uint8_t pressure_down;
+		} pressure;
+
+		struct
+		{
+			uint16_t tag_id;
+			uint8_t rssi;
+		} rssi;
+		uint8_t pulse;
+	};
+	uint8_t type;
 } rtls_set_params_t;
 
 typedef struct
 {
-	uint8_t smartband_id[6];
-	uint8_t smartband_data[3];
-	uint8_t rssi;
+	union
+	{
+		struct
+		{
+			uint8_t pressure_up;
+			uint8_t pressure_down;
+		} pressure;
+
+		struct
+		{
+			uint16_t tag_id;
+			uint8_t rssi;
+		} rssi;
+		uint8_t pulse;
+	};
+	uint8_t type;
 } rtls_status_params_t;
 
 #endif /* RTLS_COMMON_H__ */
