@@ -105,7 +105,7 @@
  */
 #define ACCESS_MODEL_COUNT (1 + /* Configuration server */  \
                             1 + /* Health server */  \
-                            1   /* Generic OnOff client (2 groups) */)
+                            2 )
 
 /**
  * The number of elements in the application.
@@ -192,7 +192,7 @@
  * @{
  */
 /** GAP device name. */
-#define GAP_DEVICE_NAME                 "nRF5x Mesh Switch"
+#define GAP_DEVICE_NAME                 "Client, tag"
 /** @} end of BLE_SOFTDEVICE_SUPPORT_CONFIG */
 
 //-----------------------------------------example_common.h-----------

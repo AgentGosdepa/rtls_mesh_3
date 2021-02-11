@@ -35,58 +35,51 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef RTLS_MESSAGES_H__
-#define RTLS_MESSAGES_H__
+#ifndef RTLS_CONTROL_SERVER_H__
+#define RTLS_CONTROL_SERVER_H__
 
 #include <stdint.h>
+#include "access.h"
+#include "access_reliable.h"
+#include "rtls_control_common.h"
+#include "model_common.h"
 
-#define RTLS_PULSE_SET_LEN 1
-#define RTLS_PRESSURE_SET_LEN 2
-#define RTLS_RSSI_SET_LEN 7
+#define RTLS_CONTROL_SERVER_MODEL_ID 0x1002
 
-typedef enum
+typedef struct __rtls_control_server_t rtls_control_server_t;
+
+typedef void (*rtls_state_get_cb_t)(const rtls_control_server_t * p_self,
+                                             const access_message_rx_meta_t * p_meta,
+                                             rtls_control_status_params_t * p_out);
+
+
+typedef struct
 {
-    RTLS_OPCODE_PULSE_SET = 0x8202,
-    RTLS_OPCODE_PULSE_SET_UNACKNOWLEDGED = 0x8203,
-    RTLS_OPCODE_PRESSURE_SET = 0x8201,
-    RTLS_OPCODE_PRESSURE_SET_UNACKNOWLEDGED = 0x8205,
-    RTLS_OPCODE_RSSI_SET = 0x8206,
-    RTLS_OPCODE_RSSI_SET_UNACKNOWLEDGED = 0x8207,
-    RTLS_OPCODE_STATUS = 0x8204
-} rtls_opcode_t;
+    rtls_state_get_cb_t    get_cb;
+} rtls_control_server_state_cbs_t;
 
-typedef union __attribute((packed))
+typedef struct
 {
-	uint8_t pulse;
+    rtls_control_server_state_cbs_t rtls_cbs;
+} rtls_control_server_callbacks_t;
 
-	struct __attribute((packed))
-	{
-		uint8_t pressure_up;
-		uint8_t pressure_down;
-	} pressure;
-
-	struct __attribute((packed))
-	{
-		uint8_t tag_id[6];
-		uint8_t rssi;
-	} rssi;
-} rtls_set_msg_pkt_t;
-
-typedef union __attribute((packed))
+typedef struct
 {
-	uint8_t pulse;
+    uint32_t timeout;
+    bool force_segmented;
+    nrf_mesh_transmic_size_t transmic_size;
+    const rtls_control_server_callbacks_t * p_callbacks;
+} rtls_control_server_settings_t;
 
-	struct __attribute((packed))
-	{
-		uint8_t pressure_up;
-		uint8_t pressure_down;
-	} pressure;
+struct __rtls_control_server_t
+{
+    access_model_handle_t model_handle;
+    access_reliable_t access_message;
+    rtls_control_server_settings_t settings;
+};
 
-	struct __attribute((packed))
-	{
-		uint8_t tag_id[6];
-		uint8_t rssi;
-	} rssi;
-} rtls_status_msg_pkt_t;
+uint32_t rtls_control_server_init(rtls_control_server_t * p_server, uint8_t element_index);
 
-#endif /* RTLS_MESSAGES_H__ */
+uint32_t rtls_control_server_status_publish(rtls_control_server_t * p_server, const rtls_control_status_params_t * p_params);
+
+#endif /* RTLS_SERVER_H__ */

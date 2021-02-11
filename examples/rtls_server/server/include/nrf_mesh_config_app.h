@@ -79,7 +79,7 @@
  * @note To fit the configuration and health models, this value must equal at least
  * the number of models needed by the application plus two.
  */
-#define ACCESS_MODEL_COUNT (3)
+#define ACCESS_MODEL_COUNT (4)
 
 /**
  * The number of elements in the application.
@@ -172,7 +172,7 @@
  *
  * @{
  */
-#define GAP_DEVICE_NAME                 "nRF5x Mesh Light"
+#define GAP_DEVICE_NAME                 "Server, UART->PC"
 /** @} end of BLE_SOFTDEVICE_SUPPORT_CONFIG */
 
 /** @} end of NRF_MESH_CONFIG_CORE */

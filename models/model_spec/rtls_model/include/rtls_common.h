@@ -50,25 +50,34 @@
 
 typedef struct
 {
-	struct
+	uint8_t type;
+	
+	union
 	{
-		uint8_t pressure_up;
-		uint8_t pressure_down;
-	} pressure;
+		uint8_t pulse;
 
-	struct
-	{
-		uint16_t tag_id;
-		uint8_t rssi;
-	} rssi;
+		struct
+		{
+			uint8_t pressure_up;
+			uint8_t pressure_down;
+		} pressure;
 
-	uint8_t pulse;
+		struct
+		{
+			uint8_t tag_id[6];
+			uint8_t rssi;
+		} rssi;
+	};
 } rtls_state_t;
 
 typedef struct
 {
+	uint8_t type;
+	
 	union
 	{
+		uint8_t pulse;
+
 		struct
 		{
 			uint8_t pressure_up;
@@ -77,18 +86,20 @@ typedef struct
 
 		struct
 		{
-			uint16_t tag_id;
+			uint8_t tag_id[6];
 			uint8_t rssi;
 		} rssi;
-		uint8_t pulse;
 	};
-	uint8_t type;
 } rtls_set_params_t;
 
 typedef struct
 {
+	uint8_t type;
+	
 	union
 	{
+		uint8_t pulse;
+
 		struct
 		{
 			uint8_t pressure_up;
@@ -97,12 +108,10 @@ typedef struct
 
 		struct
 		{
-			uint16_t tag_id;
+			uint8_t tag_id[6];
 			uint8_t rssi;
 		} rssi;
-		uint8_t pulse;
 	};
-	uint8_t type;
 } rtls_status_params_t;
 
 #endif /* RTLS_COMMON_H__ */

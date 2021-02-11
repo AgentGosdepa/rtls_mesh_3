@@ -70,7 +70,10 @@ static void status_handle(access_model_handle_t handle, const access_message_rx_
     else if (p_rx_msg->length == RTLS_RSSI_SET_LEN)
     {
         in_data.rssi.rssi = p_msg_params_packed->rssi.rssi;
-        in_data.rssi.tag_id = p_msg_params_packed->rssi.tag_id;
+        for(uint8_t i = 0; i < 6; i++)
+        {
+            in_data.rssi.tag_id[i] = p_msg_params_packed->rssi.tag_id[i];
+        }
         in_data.type = RTLS_RSSI_TYPE;
     }
 
@@ -100,7 +103,10 @@ static uint8_t message_set_packet_create(rtls_set_msg_pkt_t *p_set, const rtls_s
     else if (p_params->type == RTLS_RSSI_TYPE)
     {
         p_set->rssi.rssi = p_params->rssi.rssi;
-        p_set->rssi.tag_id = p_params->rssi.tag_id;
+        for(uint8_t i = 0; i < 6; i++)
+        {
+            p_set->rssi.tag_id[i] = p_params->rssi.tag_id[i];
+        }
         return RTLS_RSSI_SET_LEN;
     }
     else
@@ -137,7 +143,8 @@ uint32_t rtls_client_init(rtls_client_t * p_client, uint8_t element_index)
 {
     if (p_client == NULL ||
         p_client->settings.p_callbacks == NULL ||
-        p_client->settings.p_callbacks->rtls_status_cb == NULL)
+        p_client->settings.p_callbacks->rtls_status_cb == NULL ||
+        p_client->settings.p_callbacks->ack_transaction_status_cb == NULL)
     {
         return NRF_ERROR_NULL;
     }

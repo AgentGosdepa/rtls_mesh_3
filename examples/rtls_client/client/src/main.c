@@ -57,8 +57,8 @@
 #include "mesh_app_utils.h"
 
 /* Models */
-//#include "generic_onoff_client.h"
 #include "rtls_client.h"
+#include "rtls_control_server.h"
 
 /* Logging and RTT */
 #include "log.h"
@@ -90,24 +90,36 @@
 /*****************************************************************************
  * Forward declaration of static functions
  *****************************************************************************/
-static void app_generic_onoff_client_status_cb(const rtls_client_t * p_self,
+static void app_rtls_client_status_cb(const rtls_client_t * p_self,
                                                const access_message_rx_meta_t * p_meta,
                                                const rtls_status_params_t * p_in);
-static void app_gen_onoff_client_transaction_status_cb(access_model_handle_t model_handle,
+
+static void app_rtls_client_transaction_status_cb(access_model_handle_t model_handle,
                                                        void * p_args,
                                                        access_reliable_status_t status);
+
+static void app_rtls_control_client_get_cb_t(const rtls_control_server_t * p_self,
+                                             const access_message_rx_meta_t * p_meta,
+                                             rtls_control_status_params_t * p_out);
+
 
 
 /*****************************************************************************
  * Static variables
  *****************************************************************************/
 static rtls_client_t m_clients[1];
+static rtls_control_server_t m_control_servers[1];
 static bool                   m_device_provisioned;
 
 const rtls_client_callbacks_t client_cbs =
 {
-    .rtls_status_cb = app_generic_onoff_client_status_cb,
-    .ack_transaction_status_cb = app_gen_onoff_client_transaction_status_cb
+    .rtls_status_cb = app_rtls_client_status_cb,
+    .ack_transaction_status_cb = app_rtls_client_transaction_status_cb
+};
+
+const rtls_control_server_callbacks_t control_server_cbs =
+{
+    .rtls_cbs.get_cb = app_rtls_control_client_get_cb_t
 };
 
 static void device_identification_start_cb(uint8_t attention_duration_s)
@@ -151,7 +163,7 @@ static void provisioning_complete_cb(void)
 * determine suitable course of action (e.g. re-initiate previous transaction) by using this
 * callback.
 */
-static void app_gen_onoff_client_transaction_status_cb(access_model_handle_t model_handle,
+static void app_rtls_client_transaction_status_cb(access_model_handle_t model_handle,
                                                        void * p_args,
                                                        access_reliable_status_t status)
 {
@@ -176,8 +188,7 @@ static void app_gen_onoff_client_transaction_status_cb(access_model_handle_t mod
     }
 }
 
-/* Generic OnOff client model interface: Process the received status message in this callback */
-static void app_generic_onoff_client_status_cb(const rtls_client_t * p_self,
+static void app_rtls_client_status_cb(const rtls_client_t * p_self,
                                                const access_message_rx_meta_t * p_meta,
                                                const rtls_status_params_t * p_in)
 {
@@ -192,9 +203,27 @@ static void app_generic_onoff_client_status_cb(const rtls_client_t * p_self,
     }
     else if (p_in->type == RTLS_RSSI_TYPE)
     {
-        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: rssi = 0x%x addr = 0x%x to: 0x%x complete.\n", p_in->rssi.rssi,
-                                            p_in->rssi.tag_id, p_meta->src.value);
+        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: rssi = 0x%x from 0x%x, addr = %x-%x-%x-%x-%x-%x complete.\n", 
+                                            p_in->rssi.rssi, p_meta->src.value,
+                                            p_in->rssi.tag_id[0], 
+                                            p_in->rssi.tag_id[1],
+                                            p_in->rssi.tag_id[2],
+                                            p_in->rssi.tag_id[3],
+                                            p_in->rssi.tag_id[4],
+                                            p_in->rssi.tag_id[5]);
     }
+}
+
+static void app_rtls_control_client_get_cb_t(const rtls_control_server_t * p_self, const access_message_rx_meta_t * p_meta,
+                                             rtls_control_status_params_t * p_out)
+{
+    p_out->type = RTLS_UUID_TYPE;
+    p_out->uuid.tag_id[0] = 0xAB;
+    p_out->uuid.tag_id[1] = 0xFF;
+    p_out->uuid.tag_id[2] = 0x12;
+    p_out->uuid.tag_id[3] = 0x31;
+    p_out->uuid.tag_id[4] = 0xEE;
+    p_out->uuid.tag_id[5] = 0xF0;
 }
 
 static void node_reset(void)
@@ -247,16 +276,38 @@ static void button_event_handler(uint32_t button_number)
         case 3:
             set_params.type = RTLS_RSSI_TYPE;
             set_params.rssi.rssi = 0xC6;
-            set_params.rssi.tag_id = 0xA6F6;
-            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: rssi = 0x%x addr = 0x%x start.\n", set_params.rssi.rssi,
-                                            set_params.rssi.tag_id);
+            set_params.rssi.tag_id[0] = 0xAA;
+            set_params.rssi.tag_id[1] = 0xBB;
+            set_params.rssi.tag_id[2] = 0xCC;
+            set_params.rssi.tag_id[3] = 0xDD;
+            set_params.rssi.tag_id[4] = 0xEE;
+            set_params.rssi.tag_id[5] = 0xFF;
+            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: rssi = 0x%x addr = %x-%x-%x-%x-%x-%x start.\n", 
+                                            set_params.rssi.rssi,
+                                            set_params.rssi.tag_id[0], 
+                                            set_params.rssi.tag_id[1],
+                                            set_params.rssi.tag_id[2],
+                                            set_params.rssi.tag_id[3],
+                                            set_params.rssi.tag_id[4],
+                                            set_params.rssi.tag_id[5]);
             break;
         case 4:
             set_params.type = RTLS_RSSI_TYPE;
             set_params.rssi.rssi = 0xAA;
-            set_params.rssi.tag_id = 0xBDBD;
-            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: rssi = 0x%x addr = 0x%x start.\n", set_params.rssi.rssi,
-                                            set_params.rssi.tag_id);
+            set_params.rssi.tag_id[0] = 0xAA;
+            set_params.rssi.tag_id[1] = 0xAB;
+            set_params.rssi.tag_id[2] = 0xAC;
+            set_params.rssi.tag_id[3] = 0xAD;
+            set_params.rssi.tag_id[4] = 0xAE;
+            set_params.rssi.tag_id[5] = 0xAF;
+            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: rssi = 0x%x addr = %x-%x-%x-%x-%x-%x start.\n", 
+                                            set_params.rssi.rssi,
+                                            set_params.rssi.tag_id[0], 
+                                            set_params.rssi.tag_id[1],
+                                            set_params.rssi.tag_id[2],
+                                            set_params.rssi.tag_id[3],
+                                            set_params.rssi.tag_id[4],
+                                            set_params.rssi.tag_id[5]);
             break;
     }
 
@@ -342,7 +393,13 @@ static void models_init_cb(void)
         m_clients[i].settings.force_segmented = APP_FORCE_SEGMENTATION;
         m_clients[i].settings.transmic_size = APP_MIC_SIZE;
 
+        m_control_servers[i].settings.p_callbacks = &control_server_cbs;
+        m_control_servers[i].settings.timeout = 0;
+        m_control_servers[i].settings.force_segmented = APP_FORCE_SEGMENTATION;
+        m_control_servers[i].settings.transmic_size = APP_MIC_SIZE;
+
         ERROR_CHECK(rtls_client_init(&m_clients[i], i));
+        ERROR_CHECK(rtls_control_server_init(&m_control_servers[i], i));
     }
 }
 
@@ -374,8 +431,8 @@ static void mesh_init(void)
 static void initialize(void)
 {
     //__LOG_INIT(0, 0, LOG_CALLBACK_DEFAULT);
-    //__LOG_INIT(LOG_SRC_APP | LOG_SRC_ACCESS | LOG_SRC_BEARER, LOG_LEVEL_INFO | LOG_LEVEL_DBG1, LOG_CALLBACK_DEFAULT);
-    __LOG_INIT(LOG_SRC_APP | LOG_SRC_FRIEND, LOG_LEVEL_DBG1, LOG_CALLBACK_DEFAULT);
+    __LOG_INIT(LOG_SRC_APP | LOG_SRC_ACCESS | LOG_SRC_BEARER, LOG_LEVEL_INFO | LOG_LEVEL_DBG1, LOG_CALLBACK_DEFAULT);
+    //__LOG_INIT(LOG_SRC_APP | LOG_SRC_FRIEND, LOG_LEVEL_DBG1, LOG_CALLBACK_DEFAULT);
     __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "----- BLE Mesh Light Switch Client Demo -----\n");
 
     ERROR_CHECK(app_timer_init());

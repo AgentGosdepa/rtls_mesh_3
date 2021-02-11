@@ -35,9 +35,9 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "rtls_server.h"
-#include "rtls_common.h"
-#include "rtls_messages.h"
+#include "rtls_control_server.h"
+#include "rtls_control_common.h"
+#include "rtls_control_messages.h"
 
 #include <stdint.h>
 #include <stddef.h>
@@ -50,34 +50,22 @@
 
 #include "log.h"
 
-static uint32_t status_send(rtls_server_t * p_server,
+static uint32_t status_send(rtls_control_server_t * p_server,
                             const access_message_rx_t * p_message,
-                            const rtls_status_params_t * p_params)
+                            const rtls_control_status_params_t * p_params)
 {
-    rtls_status_msg_pkt_t msg_pkt;
+    rtls_control_set_msg_pkt_t msg_pkt;
     uint16_t length = 0;
 
-    if (p_params->type == RTLS_PULSE_TYPE)
+    if (p_params->type == RTLS_UUID_TYPE)
     {
-        msg_pkt.pulse = p_params->pulse;
-        length = RTLS_PULSE_SET_LEN;
-    }
-    else if (p_params->type == RTLS_PRESSURE_TYPE)
-    {
-        msg_pkt.pressure.pressure_up = p_params->pressure.pressure_up;
-        msg_pkt.pressure.pressure_down = p_params->pressure.pressure_down;
-        length = RTLS_PRESSURE_SET_LEN;
-    }
-    else if (p_params->type == RTLS_RSSI_TYPE)
-    {
-        msg_pkt.rssi.rssi = p_params->rssi.rssi;
         for(uint8_t i = 0; i < 6; i++)
         {
-            msg_pkt.rssi.tag_id[i] = p_params->rssi.tag_id[i];
+            msg_pkt.uuid.tag_id[i] = p_params->uuid.tag_id[i];
         }
-        length = RTLS_RSSI_SET_LEN;
+        length = RTLS_UUID_GET_LEN;
     }
-
+__LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "status_send: type = %d\n", p_params->type);
     access_message_tx_t reply =
     {
         .opcode = ACCESS_OPCODE_SIG(RTLS_OPCODE_STATUS),
@@ -87,84 +75,41 @@ static uint32_t status_send(rtls_server_t * p_server,
         .transmic_size = p_server->settings.transmic_size
     };
 
-    if (p_message == NULL)
-    {
-        return access_model_publish(p_server->model_handle, &reply);
-    }
-    else
-    {
-        return access_model_reply(p_server->model_handle, p_message, &reply);
-    }
+    return access_model_reply(p_server->model_handle, p_message, &reply);
 }
 
 /** Opcode Handlers */
 
-static void handle_set(access_model_handle_t model_handle, const access_message_rx_t * p_rx_msg, void * p_args)
+static void handle_get(access_model_handle_t model_handle, const access_message_rx_t * p_rx_msg, void * p_args)
 {
-    rtls_server_t * p_server = (rtls_server_t *) p_args;
-    rtls_set_params_t in_data = {0};
-    rtls_status_params_t out_data = {0};
-    rtls_set_msg_pkt_t * p_msg_params_packed = (rtls_set_msg_pkt_t *) p_rx_msg->p_data;
+    rtls_control_server_t * p_server = (rtls_control_server_t *) p_args;
+    rtls_control_status_params_t out_data = {0};
 
-    if (p_rx_msg->length == RTLS_PULSE_SET_LEN)
-    {
-        in_data.pulse = p_msg_params_packed->pulse;
-        in_data.type = RTLS_PULSE_TYPE;
-    }
-    else if (p_rx_msg->length == RTLS_PRESSURE_SET_LEN)
-    {
-        in_data.pressure.pressure_up = p_msg_params_packed->pressure.pressure_up;
-        in_data.pressure.pressure_down = p_msg_params_packed->pressure.pressure_down;
-        in_data.type = RTLS_PRESSURE_TYPE;
-    }
-    else if (p_rx_msg->length == RTLS_RSSI_SET_LEN)
-    {
-        in_data.rssi.rssi = p_msg_params_packed->rssi.rssi;
-        for(uint8_t i = 0; i < 6; i++)
-        {
-            in_data.rssi.tag_id[i] = p_msg_params_packed->rssi.tag_id[i];
-        }
-        in_data.type = RTLS_RSSI_TYPE;
-    }
+__LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "handle_get: from %x to %x\n", p_rx_msg->meta_data.src.value, p_rx_msg->meta_data.dst.value);
 
-    //__LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Current opcode: %x\n", p_rx_msg->opcode.opcode);
-
-    p_server->settings.p_callbacks->rtls_cbs.set_cb(p_server, &p_rx_msg->meta_data,
-                            &in_data, NULL, (p_rx_msg->opcode.opcode == RTLS_OPCODE_PULSE_SET) 
-                            || (p_rx_msg->opcode.opcode == RTLS_OPCODE_PRESSURE_SET) 
-                            || (p_rx_msg->opcode.opcode == RTLS_OPCODE_RSSI_SET) ? &out_data : NULL);
-
-    if ( (p_rx_msg->opcode.opcode == RTLS_OPCODE_PULSE_SET) || (p_rx_msg->opcode.opcode == RTLS_OPCODE_PRESSURE_SET) 
-        || (p_rx_msg->opcode.opcode == RTLS_OPCODE_RSSI_SET))
-    {
-        (void) status_send(p_server, p_rx_msg, &out_data);
-    }
+    p_server->settings.p_callbacks->rtls_cbs.get_cb(p_server, &p_rx_msg->meta_data, &out_data);
+    (void) status_send(p_server, p_rx_msg, &out_data);
 }
 
 static const access_opcode_handler_t m_opcode_handlers[] =
 {
-    {ACCESS_OPCODE_SIG(RTLS_OPCODE_PULSE_SET), handle_set},
-    {ACCESS_OPCODE_SIG(RTLS_OPCODE_PULSE_SET_UNACKNOWLEDGED), handle_set},
-    {ACCESS_OPCODE_SIG(RTLS_OPCODE_PRESSURE_SET), handle_set},
-    {ACCESS_OPCODE_SIG(RTLS_OPCODE_PRESSURE_SET_UNACKNOWLEDGED), handle_set},
-    {ACCESS_OPCODE_SIG(RTLS_OPCODE_RSSI_SET), handle_set},
-    {ACCESS_OPCODE_SIG(RTLS_OPCODE_RSSI_SET_UNACKNOWLEDGED), handle_set},
+    {ACCESS_OPCODE_SIG(RTLS_OPCODE_UUID_GET), handle_get}
 };
 
 
 /** Interface functions */
-uint32_t rtls_server_init(rtls_server_t * p_server, uint8_t element_index)
+uint32_t rtls_control_server_init(rtls_control_server_t * p_server, uint8_t element_index)
 {
     if (p_server == NULL ||
         p_server->settings.p_callbacks == NULL ||
-        p_server->settings.p_callbacks->rtls_cbs.set_cb == NULL)
+        p_server->settings.p_callbacks->rtls_cbs.get_cb == NULL)
     {
         return NRF_ERROR_NULL;
     }
 
     access_model_add_params_t init_params =
     {
-        .model_id = ACCESS_MODEL_SIG(RTLS_SERVER_MODEL_ID),
+        .model_id = ACCESS_MODEL_SIG(RTLS_CONTROL_SERVER_MODEL_ID),
         .element_index =  element_index,
         .p_opcode_handlers = &m_opcode_handlers[0],
         .opcode_count = ARRAY_SIZE(m_opcode_handlers),
@@ -182,7 +127,7 @@ uint32_t rtls_server_init(rtls_server_t * p_server, uint8_t element_index)
     return status;
 }
 
-uint32_t rtls_server_status_publish(rtls_server_t * p_server, const rtls_status_params_t * p_params)
+uint32_t rtls_server_status_publish(rtls_control_server_t * p_server, const rtls_control_status_params_t * p_params)
 {
     if (p_server == NULL ||
         p_params == NULL)

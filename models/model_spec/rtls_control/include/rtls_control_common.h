@@ -35,58 +35,54 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef RTLS_MESSAGES_H__
-#define RTLS_MESSAGES_H__
+#ifndef RTLS_CONTROL_COMMON_H__
+#define RTLS_CONTROL_COMMON_H__
 
 #include <stdint.h>
+#include "model_common.h"
 
-#define RTLS_PULSE_SET_LEN 1
-#define RTLS_PRESSURE_SET_LEN 2
-#define RTLS_RSSI_SET_LEN 7
+#define RTLS_COMPANY_ID 0xFFFF
+#define RTLS_MAX        (0x01)
 
-typedef enum
+#define RTLS_UUID_TYPE 1
+
+typedef struct
 {
-    RTLS_OPCODE_PULSE_SET = 0x8202,
-    RTLS_OPCODE_PULSE_SET_UNACKNOWLEDGED = 0x8203,
-    RTLS_OPCODE_PRESSURE_SET = 0x8201,
-    RTLS_OPCODE_PRESSURE_SET_UNACKNOWLEDGED = 0x8205,
-    RTLS_OPCODE_RSSI_SET = 0x8206,
-    RTLS_OPCODE_RSSI_SET_UNACKNOWLEDGED = 0x8207,
-    RTLS_OPCODE_STATUS = 0x8204
-} rtls_opcode_t;
+	uint8_t type;
 
-typedef union __attribute((packed))
+	union
+	{		
+		struct
+		{
+			uint8_t tag_id[6];
+		} uuid;
+	};
+} rtls_control_state_t;
+
+typedef struct
 {
-	uint8_t pulse;
+	uint8_t type;
 
-	struct __attribute((packed))
-	{
-		uint8_t pressure_up;
-		uint8_t pressure_down;
-	} pressure;
+	union
+	{		
+		struct
+		{
+			uint8_t tag_id[6];
+		} uuid;
+	};
+} rtls_control_set_params_t;
 
-	struct __attribute((packed))
-	{
-		uint8_t tag_id[6];
-		uint8_t rssi;
-	} rssi;
-} rtls_set_msg_pkt_t;
-
-typedef union __attribute((packed))
+typedef struct
 {
-	uint8_t pulse;
+	uint8_t type;
 
-	struct __attribute((packed))
-	{
-		uint8_t pressure_up;
-		uint8_t pressure_down;
-	} pressure;
+	union
+	{		
+		struct
+		{
+			uint8_t tag_id[6];
+		} uuid;
+	};
+} rtls_control_status_params_t;
 
-	struct __attribute((packed))
-	{
-		uint8_t tag_id[6];
-		uint8_t rssi;
-	} rssi;
-} rtls_status_msg_pkt_t;
-
-#endif /* RTLS_MESSAGES_H__ */
+#endif /* RTLS_COMMON_H__ */

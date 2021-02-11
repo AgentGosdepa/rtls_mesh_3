@@ -59,6 +59,7 @@
 
 /* Models */
 #include "rtls_server.h"
+#include "rtls_control_client.h"
 
 /* Logging and RTT */
 #include "log.h"
@@ -91,6 +92,12 @@
 static void app_rtls_server_set_cb(const app_rtls_server_t * p_app, const rtls_set_params_t * set_data,
                                                                 const access_message_rx_meta_t * p_meta);
 
+static void app_rtls_control_client_status_cb(const rtls_control_client_t * p_self, const access_message_rx_meta_t * p_meta,
+                                                const rtls_control_status_params_t * p_in);
+
+static void app_rtls_control_client_transaction_status_cb(access_model_handle_t model_handle, void * p_args,
+                                                access_reliable_status_t status);
+
 /*****************************************************************************
  * Static variables
  *****************************************************************************/
@@ -100,10 +107,19 @@ static bool m_device_provisioned;
 APP_RTLS_SERVER_DEF(m_rtls_server_0,
                      APP_FORCE_SEGMENTATION,
                      APP_MIC_SIZE,
-                     app_rtls_server_set_cb)
+                     app_rtls_server_set_cb
+                     )
 
-static uint8_t uart_buff[6];
-static uint8_t uart_len;
+static rtls_control_client_t m_control_clients[1];
+
+const rtls_control_client_callbacks_t client_cbs =
+{
+    .rtls_status_cb = app_rtls_control_client_status_cb,
+    .ack_transaction_status_cb = app_rtls_control_client_transaction_status_cb
+};
+
+static uint8_t uart_buff1[9], uart_buff2[8];
+static uint8_t uart_len1, uart_len2;
 /* Callback for updating the hardware state */
 static void app_rtls_server_set_cb(const app_rtls_server_t * p_app, const rtls_set_params_t * set_data, 
                                                                 const access_message_rx_meta_t * p_meta)
@@ -111,48 +127,144 @@ static void app_rtls_server_set_cb(const app_rtls_server_t * p_app, const rtls_s
     //__LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "current type %x.\n", set_data->type);
     if (set_data->type == RTLS_PULSE_TYPE)
     {
-        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Coming data: type - 0x%x, 0x%x from: 0x%x complete.\n", set_data->type, set_data->pulse, p_meta->src.value);
-        uart_buff[0] = set_data->type;
-        uart_buff[1] = set_data->pulse;
-        uart_buff[3] = (p_meta->src.value & 0xFF);
-        uart_buff[2] = ((p_meta->src.value >> 8) & 0xFF);
-        uart_len = 4;
+        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Coming data: type - 0x%x, from: 0x%x, 0x%x complete.\n", 
+                                            set_data->type, p_meta->src.value, set_data->pulse);
+
+        uart_buff1[0] = set_data->type;
+        uart_buff1[1] = ((p_meta->src.value >> 8) & 0xFF);
+        uart_buff1[2] = (p_meta->src.value & 0xFF);
+        uart_buff1[3] = set_data->pulse;
+        uart_len1 = 4;
     }
     else if (set_data->type == RTLS_PRESSURE_TYPE)
     {
-        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Coming data: type - 0x%x, 0x%x|0x%x from: 0x%x complete.\n", 
-                                            set_data->type, set_data->pressure.pressure_up, set_data->pressure.pressure_down, p_meta->src.value);
-        uart_buff[0] = set_data->type;
-        uart_buff[1] = set_data->pressure.pressure_up;
-        uart_buff[2] = set_data->pressure.pressure_down;
-        uart_buff[4] = (p_meta->src.value & 0xFF);
-        uart_buff[3] = ((p_meta->src.value >> 8) & 0xFF);
-        uart_len = 5;
+        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Coming data: type - 0x%x,  from: 0x%x, 0x%x|0x%x complete.\n", 
+                                            set_data->type, p_meta->src.value, set_data->pressure.pressure_up, 
+                                            set_data->pressure.pressure_down);
+
+        uart_buff1[0] = set_data->type;
+        uart_buff1[1] = ((p_meta->src.value >> 8) & 0xFF);
+        uart_buff1[2] = (p_meta->src.value & 0xFF);
+        uart_buff1[3] = set_data->pressure.pressure_up;
+        uart_buff1[4] = set_data->pressure.pressure_down;
+        uart_len1 = 5;
     }
     else if (set_data->type == RTLS_RSSI_TYPE)
     {
-        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Coming data: type - 0x%x, rssi = 0x%x addr = 0x%x from: 0x%x complete.\n", 
-                                            set_data->type, set_data->rssi.rssi, set_data->rssi.tag_id, p_meta->src.value);
-        uart_buff[0] = set_data->type;
-        uart_buff[1] = set_data->rssi.rssi;
-        uart_buff[3] = (set_data->rssi.tag_id & 0xFF);
-        uart_buff[2] = ((set_data->rssi.tag_id >> 8) & 0xFF);
-        uart_buff[5] = (p_meta->src.value & 0xFF);
-        uart_buff[4] = ((p_meta->src.value >> 8) & 0xFF);
-        uart_len = 6;
+        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Coming data: type - 0x%x from: 0x%x, rssi = 0x%x addr = %x-%x-%x-%x-%x-%x complete.\n", 
+                                            set_data->type, p_meta->src.value, set_data->rssi.rssi,
+                                            set_data->rssi.tag_id[0], 
+                                            set_data->rssi.tag_id[1],
+                                            set_data->rssi.tag_id[2],
+                                            set_data->rssi.tag_id[3],
+                                            set_data->rssi.tag_id[4],
+                                            set_data->rssi.tag_id[5]);
+
+        uart_buff1[0] = set_data->type;
+        uart_buff1[1] = ((p_meta->src.value >> 8) & 0xFF);
+        uart_buff1[2] = (p_meta->src.value & 0xFF);
+        uart_buff1[3] = set_data->rssi.rssi;
+        uart_buff1[4] = set_data->rssi.tag_id[0];
+        uart_buff1[5] = set_data->rssi.tag_id[1];
+        uart_buff1[6] = set_data->rssi.tag_id[2];
+        uart_buff1[7] = set_data->rssi.tag_id[3];
+        uart_buff1[8] = set_data->rssi.tag_id[4];
+        uart_buff1[9] = set_data->rssi.tag_id[5];
+        uart_len1 = 9;
     }
     else
     {
         NRF_MESH_ASSERT(0);
     }
-    nrf_mesh_serial_tx(uart_buff, uart_len);
+    nrf_mesh_serial_tx(uart_buff1, uart_len1);
+}
+
+static void app_rtls_control_client_status_cb(const rtls_control_client_t * p_self, const access_message_rx_meta_t * p_meta,
+                                                const rtls_control_status_params_t * p_in)
+{
+    if (p_in->type == RTLS_UUID_TYPE)
+    {
+        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Coming data: type - 0x%x from: 0x%x, addr = %x-%x-%x-%x-%x-%x complete.\n", 
+                                            p_in->type, p_meta->src.value,
+                                            p_in->uuid.tag_id[0], 
+                                            p_in->uuid.tag_id[1],
+                                            p_in->uuid.tag_id[2],
+                                            p_in->uuid.tag_id[3],
+                                            p_in->uuid.tag_id[4],
+                                            p_in->uuid.tag_id[5]);
+
+        uart_buff2[0] = p_in->type;
+        uart_buff2[1] = ((p_meta->src.value >> 8) & 0xFF);
+        uart_buff2[2] = (p_meta->src.value & 0xFF);
+        uart_buff2[4] = p_in->uuid.tag_id[0];
+        uart_buff2[5] = p_in->uuid.tag_id[1];
+        uart_buff2[6] = p_in->uuid.tag_id[2];
+        uart_buff2[7] = p_in->uuid.tag_id[3];
+        uart_buff2[8] = p_in->uuid.tag_id[4];
+        uart_buff2[9] = p_in->uuid.tag_id[5];
+        uart_len2 = 8;
+    }
+    else
+    {
+        NRF_MESH_ASSERT(0);
+    }
+    nrf_mesh_serial_tx(uart_buff2, uart_len2);
+}
+
+static void app_rtls_control_client_transaction_status_cb(access_model_handle_t model_handle, void * p_args,
+                                                access_reliable_status_t status)
+{
+    switch(status)
+    {
+        case ACCESS_RELIABLE_TRANSFER_SUCCESS:
+            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Acknowledged transfer success.\n");
+            break;
+
+        case ACCESS_RELIABLE_TRANSFER_TIMEOUT:
+            hal_led_blink_ms(LEDS_MASK, LED_BLINK_SHORT_INTERVAL_MS, LED_BLINK_CNT_NO_REPLY);
+            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Acknowledged transfer timeout.\n");
+            break;
+
+        case ACCESS_RELIABLE_TRANSFER_CANCELLED:
+            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Acknowledged transfer cancelled.\n");
+            break;
+
+        default:
+            ERROR_CHECK(NRF_ERROR_INTERNAL);
+            break;
+    }
+}
+
+
+
+/*
+static void app_rtls_state_status_cb_t(const app_rtls_server_t * p_app, const rtls_set_params_t * set_data,
+                                                                const access_message_rx_meta_t * p_meta)
+{
+
+}*/
+
+static void app_control_model_init(void)
+{
+    __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Initializing and adding models\n");
+
+    for (uint32_t i = 0; i < 1; ++i)
+    {
+        m_control_clients[i].settings.p_callbacks = &client_cbs;
+        m_control_clients[i].settings.timeout = 0;
+        m_control_clients[i].settings.force_segmented = APP_FORCE_SEGMENTATION;
+        m_control_clients[i].settings.transmic_size = APP_MIC_SIZE;
+
+        ERROR_CHECK(rtls_control_client_init(&m_control_clients[i], i));
+    }
+
 }
 
 static void app_model_init(void)
 {
     /* Instantiate onoff server on element index APP_ONOFF_ELEMENT_INDEX */
     ERROR_CHECK(app_rtls_init(&m_rtls_server_0, APP_RTLS_ELEMENT_INDEX));
-    __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "App OnOff Model Handle: %d\n", m_rtls_server_0.server.model_handle);
+    __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "App RTLS Model Handle: %d\n", m_rtls_server_0.server.model_handle);
 }
 
 /*************************************************************************************************/
@@ -190,6 +302,7 @@ static void button_event_handler(uint32_t button_number)
         the STATUS message to inform client about the state change. This is a demonstration of
         state change publication due to local event. */
         case 1:
+            ERROR_CHECK(rtls_control_client_get(&m_control_clients[0]));
             break;
 
         /* Initiate node reset */
@@ -271,6 +384,7 @@ static void models_init_cb(void)
 {
     __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Initializing and adding models\n");
     app_model_init();
+    app_control_model_init();
 }
 
 static void mesh_init(void)
@@ -302,8 +416,8 @@ static void mesh_init(void)
 static void initialize(void)
 {
     //__LOG_INIT(0, 0, LOG_CALLBACK_DEFAULT);
-    //__LOG_INIT(LOG_SRC_APP | LOG_SRC_ACCESS | LOG_SRC_BEARER, LOG_LEVEL_INFO | LOG_LEVEL_DBG1, LOG_CALLBACK_DEFAULT);
-    __LOG_INIT(LOG_SRC_APP | LOG_SRC_FRIEND, LOG_LEVEL_DBG1, LOG_CALLBACK_DEFAULT);
+    __LOG_INIT(LOG_SRC_APP | LOG_SRC_ACCESS | LOG_SRC_BEARER, LOG_LEVEL_INFO | LOG_LEVEL_DBG1, LOG_CALLBACK_DEFAULT);
+    //__LOG_INIT(LOG_SRC_APP | LOG_SRC_FRIEND, LOG_LEVEL_DBG1, LOG_CALLBACK_DEFAULT);
     __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "----- BLE Mesh Light Switch Server Demo -----\n");
 
     ERROR_CHECK(app_timer_init());
