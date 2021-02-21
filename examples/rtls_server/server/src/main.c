@@ -124,7 +124,7 @@ static uint8_t uart_len1, uart_len2;
 static void app_rtls_server_set_cb(const app_rtls_server_t * p_app, const rtls_set_params_t * set_data, 
                                                                 const access_message_rx_meta_t * p_meta)
 {
-    //__LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "current type %x.\n", set_data->type);
+    __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "current type %x.\n", set_data->type);
     if (set_data->type == RTLS_PULSE_TYPE)
     {
         __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Coming data: type - 0x%x, from: 0x%x, 0x%x complete.\n", 
@@ -151,26 +151,17 @@ static void app_rtls_server_set_cb(const app_rtls_server_t * p_app, const rtls_s
     }
     else if (set_data->type == RTLS_RSSI_TYPE)
     {
-        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Coming data: type - 0x%x from: 0x%x, rssi = 0x%x addr = %x-%x-%x-%x-%x-%x complete.\n", 
+        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Coming data: type - 0x%x from: 0x%x, rssi = 0x%x addr = 0x%x complete.\n", 
                                             set_data->type, p_meta->src.value, set_data->rssi.rssi,
-                                            set_data->rssi.tag_id[0], 
-                                            set_data->rssi.tag_id[1],
-                                            set_data->rssi.tag_id[2],
-                                            set_data->rssi.tag_id[3],
-                                            set_data->rssi.tag_id[4],
-                                            set_data->rssi.tag_id[5]);
+                                            set_data->rssi.tag_id);
 
         uart_buff1[0] = set_data->type;
         uart_buff1[1] = ((p_meta->src.value >> 8) & 0xFF);
         uart_buff1[2] = (p_meta->src.value & 0xFF);
         uart_buff1[3] = set_data->rssi.rssi;
-        uart_buff1[4] = set_data->rssi.tag_id[0];
-        uart_buff1[5] = set_data->rssi.tag_id[1];
-        uart_buff1[6] = set_data->rssi.tag_id[2];
-        uart_buff1[7] = set_data->rssi.tag_id[3];
-        uart_buff1[8] = set_data->rssi.tag_id[4];
-        uart_buff1[9] = set_data->rssi.tag_id[5];
-        uart_len1 = 9;
+        uart_buff1[4] = ((set_data->rssi.tag_id >> 8) & 0xFF);
+        uart_buff1[5] = (set_data->rssi.tag_id & 0xFF);
+        uart_len1 = 6;
     }
     else
     {
@@ -184,31 +175,21 @@ static void app_rtls_control_client_status_cb(const rtls_control_client_t * p_se
 {
     if (p_in->type == RTLS_UUID_TYPE)
     {
-        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Coming data: type - 0x%x from: 0x%x, addr = %x-%x-%x-%x-%x-%x complete.\n", 
+        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Coming data: type - 0x%x from: 0x%x, addr = 0x%x complete.\n", 
                                             p_in->type, p_meta->src.value,
-                                            p_in->uuid.tag_id[0], 
-                                            p_in->uuid.tag_id[1],
-                                            p_in->uuid.tag_id[2],
-                                            p_in->uuid.tag_id[3],
-                                            p_in->uuid.tag_id[4],
-                                            p_in->uuid.tag_id[5]);
+                                            p_in->uuid.tag_id);
 
-        uart_buff2[0] = p_in->type;
+        /*uart_buff2[0] = p_in->type;
         uart_buff2[1] = ((p_meta->src.value >> 8) & 0xFF);
         uart_buff2[2] = (p_meta->src.value & 0xFF);
-        uart_buff2[4] = p_in->uuid.tag_id[0];
-        uart_buff2[5] = p_in->uuid.tag_id[1];
-        uart_buff2[6] = p_in->uuid.tag_id[2];
-        uart_buff2[7] = p_in->uuid.tag_id[3];
-        uart_buff2[8] = p_in->uuid.tag_id[4];
-        uart_buff2[9] = p_in->uuid.tag_id[5];
-        uart_len2 = 8;
+        uart_buff2[3] = ((p_in->uuid.tag_id >> 8) & 0xFF);
+        uart_buff2[4] = (p_in->uuid.tag_id & 0xFF);
+        uart_len2 = 5;*/
     }
     else
     {
         NRF_MESH_ASSERT(0);
     }
-    nrf_mesh_serial_tx(uart_buff2, uart_len2);
 }
 
 static void app_rtls_control_client_transaction_status_cb(access_model_handle_t model_handle, void * p_args,
@@ -234,8 +215,6 @@ static void app_rtls_control_client_transaction_status_cb(access_model_handle_t 
             break;
     }
 }
-
-
 
 /*
 static void app_rtls_state_status_cb_t(const app_rtls_server_t * p_app, const rtls_set_params_t * set_data,

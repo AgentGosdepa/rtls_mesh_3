@@ -42,7 +42,7 @@
 
 #define RTLS_PULSE_SET_LEN 1
 #define RTLS_PRESSURE_SET_LEN 2
-#define RTLS_RSSI_SET_LEN 7
+#define RTLS_RSSI_SET_LEN 3
 
 typedef enum
 {
@@ -67,7 +67,7 @@ typedef union __attribute((packed))
 
 	struct __attribute((packed))
 	{
-		uint8_t tag_id[6];
+		uint16_t tag_id;
 		uint8_t rssi;
 	} rssi;
 } rtls_set_msg_pkt_t;
@@ -84,7 +84,7 @@ typedef union __attribute((packed))
 
 	struct __attribute((packed))
 	{
-		uint8_t tag_id[6];
+		uint16_t tag_id;
 		uint8_t rssi;
 	} rssi;
 } rtls_status_msg_pkt_t;

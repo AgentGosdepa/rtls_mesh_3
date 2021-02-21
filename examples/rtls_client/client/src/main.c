@@ -85,11 +85,30 @@
 /* Controls the MIC size used by the model instance for sending the mesh messages. */
 #define APP_MIC_SIZE                 (NRF_MESH_TRANSMIC_SIZE_SMALL)
 
-
+#if 0
+#define DONGLE
+#else
+#define BEACON
+#endif
 
 /*****************************************************************************
  * Forward declaration of static functions
  *****************************************************************************/
+#ifdef DONGLE
+#include "rtls_rssi_client.h"
+static void app_rtls_rssi_client_status_cb(const rtls_rssi_client_t * p_self, 
+                                                        const access_message_rx_meta_t * p_meta);
+static void app_rtls_rssi_client_transaction_status_cb(access_model_handle_t model_handle,
+                                                       void * p_args,
+                                                       access_reliable_status_t status);
+#endif
+
+#ifdef BEACON
+#include "rtls_rssi_server.h"
+static void app_rtls_rssi_server_set_cb_t(const rtls_rssi_server_t * p_self,
+                                             const access_message_rx_meta_t * p_meta);
+#endif
+
 static void app_rtls_client_status_cb(const rtls_client_t * p_self,
                                                const access_message_rx_meta_t * p_meta,
                                                const rtls_status_params_t * p_in);
@@ -102,11 +121,26 @@ static void app_rtls_control_client_get_cb_t(const rtls_control_server_t * p_sel
                                              const access_message_rx_meta_t * p_meta,
                                              rtls_control_status_params_t * p_out);
 
-
-
 /*****************************************************************************
  * Static variables
  *****************************************************************************/
+#ifdef DONGLE
+static rtls_rssi_client_t m_rssi_clients[1];
+const rtls_rssi_client_callbacks_t rssi_client_cbs =
+{
+    .rtls_status_cb = app_rtls_rssi_client_status_cb,
+    .ack_transaction_status_cb = app_rtls_rssi_client_transaction_status_cb
+};
+#endif
+
+#ifdef BEACON
+static rtls_rssi_server_t m_rssi_servers[1];
+const rtls_rssi_server_callbacks_t rssi_server_cbs =
+{
+    .rtls_cbs.set_cb = app_rtls_rssi_server_set_cb_t
+};
+#endif
+
 static rtls_client_t m_clients[1];
 static rtls_control_server_t m_control_servers[1];
 static bool                   m_device_provisioned;
@@ -159,6 +193,80 @@ static void provisioning_complete_cb(void)
     hal_led_blink_ms(LEDS_MASK, LED_BLINK_INTERVAL_MS, LED_BLINK_CNT_PROV);
 }
 
+
+#ifdef DONGLE
+static void app_rtls_rssi_client_status_cb(const rtls_rssi_client_t * p_self, 
+                                                        const access_message_rx_meta_t * p_meta)
+{
+    __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Data was delivered from 0x%x to 0x%x.\n", p_meta->dst.value, p_meta->src.value);
+}
+
+static void app_rtls_rssi_client_transaction_status_cb(access_model_handle_t model_handle,
+                                                       void * p_args,
+                                                       access_reliable_status_t status)
+{
+    switch(status)
+    {
+        case ACCESS_RELIABLE_TRANSFER_SUCCESS:
+            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Acknowledged transfer success.\n");
+            break;
+
+        case ACCESS_RELIABLE_TRANSFER_TIMEOUT:
+            hal_led_blink_ms(LEDS_MASK, LED_BLINK_SHORT_INTERVAL_MS, LED_BLINK_CNT_NO_REPLY);
+            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Acknowledged transfer timeout.\n");
+            break;
+
+        case ACCESS_RELIABLE_TRANSFER_CANCELLED:
+            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Acknowledged transfer cancelled.\n");
+            break;
+
+        default:
+            ERROR_CHECK(NRF_ERROR_INTERNAL);
+            break;
+    }
+}
+#endif
+
+#ifdef BEACON
+static void app_rtls_rssi_server_set_cb_t(const rtls_rssi_server_t * p_self,
+                                             const access_message_rx_meta_t * p_meta)
+{
+    __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Data was delivered from 0x%x to 0x%x, rssi is %d = 0x%x.\n", 
+                        p_meta->src.value, p_meta->dst.value, p_meta->p_core_metadata->params.scanner.rssi, p_meta->p_core_metadata->params.scanner.rssi);
+
+    rtls_set_params_t msg = 
+    {
+        .rssi.rssi = p_meta->p_core_metadata->params.scanner.rssi,
+        .rssi.tag_id = p_meta->src.value,
+        .type = RTLS_RSSI_TYPE
+    };
+
+    rtls_client_set(m_clients, &msg, NULL);
+    //rtls_client_set_unack(m_clients, &msg, NULL, 2);
+}
+#endif
+
+static void app_rtls_client_status_cb(const rtls_client_t * p_self,
+                                               const access_message_rx_meta_t * p_meta,
+                                               const rtls_status_params_t * p_in)
+{
+    if (p_in->type == RTLS_PULSE_TYPE)
+    {
+        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: 0x%x, to: 0x%x complete.\n", p_in->pulse, p_meta->src.value);
+    }
+    else if (p_in->type == RTLS_PRESSURE_TYPE)
+    {
+        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: 0x%x|0x%x to: 0x%x complete.\n", p_in->pressure.pressure_up, 
+                                            p_in->pressure.pressure_down, p_meta->src.value);
+    }
+    else if (p_in->type == RTLS_RSSI_TYPE)
+    {
+        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: rssi = 0x%x from 0x%x, addr = 0x%x complete.\n", 
+                                            p_in->rssi.rssi, p_meta->src.value,
+                                            p_in->rssi.tag_id);
+    }
+}
+
 /* Acknowledged transaction status callback, if acknowledged transfer fails, application can
 * determine suitable course of action (e.g. re-initiate previous transaction) by using this
 * callback.
@@ -188,42 +296,11 @@ static void app_rtls_client_transaction_status_cb(access_model_handle_t model_ha
     }
 }
 
-static void app_rtls_client_status_cb(const rtls_client_t * p_self,
-                                               const access_message_rx_meta_t * p_meta,
-                                               const rtls_status_params_t * p_in)
-{
-    if (p_in->type == RTLS_PULSE_TYPE)
-    {
-        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: 0x%x, to: 0x%x complete.\n", p_in->pulse, p_meta->src.value);
-    }
-    else if (p_in->type == RTLS_PRESSURE_TYPE)
-    {
-        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: 0x%x|0x%x to: 0x%x complete.\n", p_in->pressure.pressure_up, 
-                                            p_in->pressure.pressure_down, p_meta->src.value);
-    }
-    else if (p_in->type == RTLS_RSSI_TYPE)
-    {
-        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: rssi = 0x%x from 0x%x, addr = %x-%x-%x-%x-%x-%x complete.\n", 
-                                            p_in->rssi.rssi, p_meta->src.value,
-                                            p_in->rssi.tag_id[0], 
-                                            p_in->rssi.tag_id[1],
-                                            p_in->rssi.tag_id[2],
-                                            p_in->rssi.tag_id[3],
-                                            p_in->rssi.tag_id[4],
-                                            p_in->rssi.tag_id[5]);
-    }
-}
-
 static void app_rtls_control_client_get_cb_t(const rtls_control_server_t * p_self, const access_message_rx_meta_t * p_meta,
                                              rtls_control_status_params_t * p_out)
 {
     p_out->type = RTLS_UUID_TYPE;
-    p_out->uuid.tag_id[0] = 0xAB;
-    p_out->uuid.tag_id[1] = 0xFF;
-    p_out->uuid.tag_id[2] = 0x12;
-    p_out->uuid.tag_id[3] = 0x31;
-    p_out->uuid.tag_id[4] = 0xEE;
-    p_out->uuid.tag_id[5] = 0xF0;
+    p_out->uuid.tag_id[0] = 0x44;
 }
 
 static void node_reset(void)
@@ -272,43 +349,26 @@ static void button_event_handler(uint32_t button_number)
             __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: 0x%x|0x%x start.\n", set_params.pressure.pressure_up, 
                                             set_params.pressure.pressure_down);
             break;
-
+#ifdef BEACON
         case 3:
+
             set_params.type = RTLS_RSSI_TYPE;
             set_params.rssi.rssi = 0xC6;
-            set_params.rssi.tag_id[0] = 0xAA;
-            set_params.rssi.tag_id[1] = 0xBB;
-            set_params.rssi.tag_id[2] = 0xCC;
-            set_params.rssi.tag_id[3] = 0xDD;
-            set_params.rssi.tag_id[4] = 0xEE;
-            set_params.rssi.tag_id[5] = 0xFF;
-            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: rssi = 0x%x addr = %x-%x-%x-%x-%x-%x start.\n", 
+            set_params.rssi.tag_id = 0xBBAA;
+            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: rssi = 0x%x addr = 0x%x start.\n", 
                                             set_params.rssi.rssi,
-                                            set_params.rssi.tag_id[0], 
-                                            set_params.rssi.tag_id[1],
-                                            set_params.rssi.tag_id[2],
-                                            set_params.rssi.tag_id[3],
-                                            set_params.rssi.tag_id[4],
-                                            set_params.rssi.tag_id[5]);
+                                            set_params.rssi.tag_id);
             break;
         case 4:
+
             set_params.type = RTLS_RSSI_TYPE;
             set_params.rssi.rssi = 0xAA;
-            set_params.rssi.tag_id[0] = 0xAA;
-            set_params.rssi.tag_id[1] = 0xAB;
-            set_params.rssi.tag_id[2] = 0xAC;
-            set_params.rssi.tag_id[3] = 0xAD;
-            set_params.rssi.tag_id[4] = 0xAE;
-            set_params.rssi.tag_id[5] = 0xAF;
-            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: rssi = 0x%x addr = %x-%x-%x-%x-%x-%x start.\n", 
+            set_params.rssi.tag_id = 0xAABB;
+            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: rssi = 0x%x addr = 0x%x start.\n", 
                                             set_params.rssi.rssi,
-                                            set_params.rssi.tag_id[0], 
-                                            set_params.rssi.tag_id[1],
-                                            set_params.rssi.tag_id[2],
-                                            set_params.rssi.tag_id[3],
-                                            set_params.rssi.tag_id[4],
-                                            set_params.rssi.tag_id[5]);
+                                            set_params.rssi.tag_id);
             break;
+#endif
     }
 
     switch (button_number)
@@ -325,15 +385,24 @@ static void button_event_handler(uint32_t button_number)
             break;
 
         case 3:
+#ifdef BEACON
             status = rtls_client_set_unack(&m_clients[0], &set_params, NULL, 2);
             hal_led_blink_ms(BSP_LED_3, 200, 2);
 
+#else
+            status = rtls_rssi_client_set(m_rssi_clients);
+            hal_led_blink_ms(BSP_LED_3, 200, 2);
+#endif
             break;
         case 4:
+#ifdef BEACON
             (void)access_model_reliable_cancel(m_clients[0].model_handle);
             status = rtls_client_set(&m_clients[0], &set_params, NULL);
             hal_led_blink_ms(BSP_LED_3, 200, 2);
-
+#else
+            status = rtls_rssi_client_set_unack(m_rssi_clients, 2);
+            hal_led_blink_ms(BSP_LED_3, 200, 2);
+#endif
             break;
         default:
             __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, m_usage_string);
@@ -397,6 +466,22 @@ static void models_init_cb(void)
         m_control_servers[i].settings.timeout = 0;
         m_control_servers[i].settings.force_segmented = APP_FORCE_SEGMENTATION;
         m_control_servers[i].settings.transmic_size = APP_MIC_SIZE;
+
+
+#ifdef DONGLE
+        m_rssi_clients[i].settings.p_callbacks = &rssi_client_cbs;
+        m_rssi_clients[i].settings.timeout = 0;
+        m_rssi_clients[i].settings.force_segmented = APP_FORCE_SEGMENTATION;
+        m_rssi_clients[i].settings.transmic_size = APP_MIC_SIZE;
+        ERROR_CHECK(rtls_rssi_client_init(&m_rssi_clients[i], i));
+#endif
+
+#ifdef BEACON
+        m_rssi_servers[i].settings.p_callbacks = &rssi_server_cbs;
+        m_rssi_servers[i].settings.force_segmented = APP_FORCE_SEGMENTATION;
+        m_rssi_servers[i].settings.transmic_size = APP_MIC_SIZE;
+        ERROR_CHECK(rtls_rssi_server_init(&m_rssi_servers[i], i));
+#endif
 
         ERROR_CHECK(rtls_client_init(&m_clients[i], i));
         ERROR_CHECK(rtls_control_server_init(&m_control_servers[i], i));

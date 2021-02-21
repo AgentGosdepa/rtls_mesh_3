@@ -64,7 +64,7 @@ typedef struct
 
 		struct
 		{
-			uint8_t tag_id[6];
+			uint16_t tag_id;
 			uint8_t rssi;
 		} rssi;
 	};
@@ -86,7 +86,7 @@ typedef struct
 
 		struct
 		{
-			uint8_t tag_id[6];
+			uint16_t tag_id;
 			uint8_t rssi;
 		} rssi;
 	};
@@ -108,7 +108,7 @@ typedef struct
 
 		struct
 		{
-			uint8_t tag_id[6];
+			uint16_t tag_id;
 			uint8_t rssi;
 		} rssi;
 	};

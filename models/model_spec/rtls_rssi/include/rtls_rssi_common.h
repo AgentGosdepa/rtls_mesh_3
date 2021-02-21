@@ -35,55 +35,13 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef APP_RTLS_H__
-#define APP_RTLS_H__
+#ifndef RTLS_RSSI_COMMON_H__
+#define RTLS_RSSI_COMMON_H__
 
 #include <stdint.h>
+#include "model_common.h"
 
-#include "rtls_server.h"
-#include "app_timer.h"
+#define RTLS_COMPANY_ID 0xFFFF
+#define RTLS_MAX        (0x01)
 
-#define APP_RTLS_SERVER_DEF(_name, _force_segmented, _mic_size, _set_cb)  \
-    APP_TIMER_DEF(_name ## _timer); \
-    static app_rtls_server_t _name =  \
-    {  \
-        .server.settings.force_segmented = _force_segmented,  \
-        .server.settings.transmic_size = _mic_size,  \
-        .rtls_set_cb = _set_cb  \
-    };
-
-typedef union
-{
-    uint8_t pulse;
-
-    struct
-    {
-        uint8_t pressure_up;
-        uint8_t pressure_down;
-    } pressure;
-
-    struct
-    {
-        uint16_t tag_id;
-        uint8_t rssi;
-    } rssi;
-} app_rtls_state_t;
-
-/* Forward declaration */
-typedef struct __app_rtls_server_t app_rtls_server_t;
-
-typedef void (*app_rtls_set_cb_t)(const app_rtls_server_t * p_app, const rtls_set_params_t * set_data, 
-                                                            const access_message_rx_meta_t * p_meta);
-/** Application level structure holding the OnOff server model context and OnOff state representation */
-struct __app_rtls_server_t
-{
-    rtls_server_t server;
-    app_timer_id_t const * p_timer_id;
-    app_rtls_set_cb_t  rtls_set_cb;
-    app_rtls_state_t state;
-};
-
-uint32_t app_rtls_init(app_rtls_server_t * p_app, uint8_t element_index);
-
-/** @} end of APP_ONOFF */
-#endif /* APP_RTLS_H__ */
+#endif /* RTLS_RSSI_COMMON_H__ */

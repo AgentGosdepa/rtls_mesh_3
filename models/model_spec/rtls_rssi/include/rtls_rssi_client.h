@@ -35,55 +35,47 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef APP_RTLS_H__
-#define APP_RTLS_H__
+#ifndef RTLS_RSSI_CLIENT_H__
+#define RTLS_RSSI_CLIENT_H__
+
 
 #include <stdint.h>
+#include "access.h"
+#include "access_reliable.h"
+#include "rtls_rssi_common.h"
+#include "rtls_rssi_messages.h"
 
-#include "rtls_server.h"
-#include "app_timer.h"
+#define RTLS_RSSI_CLIENT_MODEL_ID 0x1005
 
-#define APP_RTLS_SERVER_DEF(_name, _force_segmented, _mic_size, _set_cb)  \
-    APP_TIMER_DEF(_name ## _timer); \
-    static app_rtls_server_t _name =  \
-    {  \
-        .server.settings.force_segmented = _force_segmented,  \
-        .server.settings.transmic_size = _mic_size,  \
-        .rtls_set_cb = _set_cb  \
-    };
+typedef struct __rtls_rssi_client_t rtls_rssi_client_t;
 
-typedef union
+typedef void (*rtls_rssi_state_status_cb_t)(const rtls_rssi_client_t * p_self,
+                                                const access_message_rx_meta_t * p_meta);
+typedef struct
 {
-    uint8_t pulse;
+    rtls_rssi_state_status_cb_t rtls_status_cb;
+    access_reliable_cb_t ack_transaction_status_cb;
+} rtls_rssi_client_callbacks_t;
 
-    struct
-    {
-        uint8_t pressure_up;
-        uint8_t pressure_down;
-    } pressure;
-
-    struct
-    {
-        uint16_t tag_id;
-        uint8_t rssi;
-    } rssi;
-} app_rtls_state_t;
-
-/* Forward declaration */
-typedef struct __app_rtls_server_t app_rtls_server_t;
-
-typedef void (*app_rtls_set_cb_t)(const app_rtls_server_t * p_app, const rtls_set_params_t * set_data, 
-                                                            const access_message_rx_meta_t * p_meta);
-/** Application level structure holding the OnOff server model context and OnOff state representation */
-struct __app_rtls_server_t
+typedef struct
 {
-    rtls_server_t server;
-    app_timer_id_t const * p_timer_id;
-    app_rtls_set_cb_t  rtls_set_cb;
-    app_rtls_state_t state;
+    uint32_t timeout;
+    bool force_segmented;
+    nrf_mesh_transmic_size_t transmic_size;
+    const rtls_rssi_client_callbacks_t * p_callbacks;
+} rtls_rssi_client_settings_t;
+
+struct __rtls_rssi_client_t
+{
+    access_model_handle_t model_handle;
+    access_reliable_t access_message;
+    rtls_rssi_client_settings_t settings;
 };
 
-uint32_t app_rtls_init(app_rtls_server_t * p_app, uint8_t element_index);
+uint32_t rtls_rssi_client_init(rtls_rssi_client_t * p_client, uint8_t element_index);
 
-/** @} end of APP_ONOFF */
-#endif /* APP_RTLS_H__ */
+uint32_t rtls_rssi_client_set(rtls_rssi_client_t * p_client);
+
+uint32_t rtls_rssi_client_set_unack(rtls_rssi_client_t * p_client, uint8_t repeats);
+
+#endif /* RTLS_RSSI_CLIENT_H__ */

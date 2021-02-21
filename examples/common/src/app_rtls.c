@@ -59,7 +59,6 @@ static void rtls_state_set_cb(const rtls_server_t * p_self,
 
 /***** Generic rtls model interface callbacks *****/
 
-
 const rtls_server_callbacks_t rtls_srv_cbs =
 {
     .rtls_cbs.set_cb = rtls_state_set_cb
@@ -91,10 +90,7 @@ static void rtls_state_set_cb(const rtls_server_t * p_self,
       else if (p_in->type == RTLS_RSSI_TYPE)
       {
           p_out->rssi.rssi = p_in->rssi.rssi;
-          for(uint8_t i = 0; i < 6; i++)
-          {
-              p_out->rssi.tag_id[i] = p_in->rssi.tag_id[i];
-          }
+          p_out->rssi.tag_id = p_in->rssi.tag_id;
       }
     }
 }

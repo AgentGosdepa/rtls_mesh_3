@@ -71,10 +71,7 @@ static uint32_t status_send(rtls_server_t * p_server,
     else if (p_params->type == RTLS_RSSI_TYPE)
     {
         msg_pkt.rssi.rssi = p_params->rssi.rssi;
-        for(uint8_t i = 0; i < 6; i++)
-        {
-            msg_pkt.rssi.tag_id[i] = p_params->rssi.tag_id[i];
-        }
+        msg_pkt.rssi.tag_id = p_params->rssi.tag_id;
         length = RTLS_RSSI_SET_LEN;
     }
 
@@ -120,14 +117,11 @@ static void handle_set(access_model_handle_t model_handle, const access_message_
     else if (p_rx_msg->length == RTLS_RSSI_SET_LEN)
     {
         in_data.rssi.rssi = p_msg_params_packed->rssi.rssi;
-        for(uint8_t i = 0; i < 6; i++)
-        {
-            in_data.rssi.tag_id[i] = p_msg_params_packed->rssi.tag_id[i];
-        }
+        in_data.rssi.tag_id = p_msg_params_packed->rssi.tag_id;
         in_data.type = RTLS_RSSI_TYPE;
     }
 
-    //__LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Current opcode: %x\n", p_rx_msg->opcode.opcode);
+    __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Current opcode: %x\n", p_rx_msg->opcode.opcode);
 
     p_server->settings.p_callbacks->rtls_cbs.set_cb(p_server, &p_rx_msg->meta_data,
                             &in_data, NULL, (p_rx_msg->opcode.opcode == RTLS_OPCODE_PULSE_SET) 

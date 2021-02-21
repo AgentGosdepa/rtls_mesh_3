@@ -44,7 +44,7 @@
 #define MAX_AVAILABLE_SERVER_NODE_NUMBER  (40)
 
 /** Number of On-Off client models on the Switch Node */
-#define CLIENT_MODEL_INSTANCE_COUNT  (2)
+#define CLIENT_MODEL_INSTANCE_COUNT  (3)
 
 //-----------------------------nrf_mesh_config_app.h---------------------------
 
@@ -105,7 +105,7 @@
  */
 #define ACCESS_MODEL_COUNT (1 + /* Configuration server */  \
                             1 + /* Health server */  \
-                            2 )
+                            3 )
 
 /**
  * The number of elements in the application.

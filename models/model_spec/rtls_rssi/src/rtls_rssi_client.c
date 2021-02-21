@@ -35,7 +35,7 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "rtls_client.h"
+#include "rtls_rssi_client.h"
 #include "model_common.h"
 
 #include <stdint.h>
@@ -51,65 +51,16 @@
 
 static void status_handle(access_model_handle_t handle, const access_message_rx_t * p_rx_msg, void * p_args)
 {
-    rtls_client_t * p_client = (rtls_client_t *) p_args;
-    rtls_status_params_t in_data = {0};
-
-    rtls_status_msg_pkt_t * p_msg_params_packed = (rtls_status_msg_pkt_t *) p_rx_msg->p_data;
-
-    if (p_rx_msg->length == RTLS_PULSE_SET_LEN)
-    {
-        in_data.pulse = p_msg_params_packed->pulse;
-        in_data.type = RTLS_PULSE_TYPE;
-    }
-    else if (p_rx_msg->length == RTLS_PRESSURE_SET_LEN)
-    {
-        in_data.pressure.pressure_up = p_msg_params_packed->pressure.pressure_up;
-        in_data.pressure.pressure_down = p_msg_params_packed->pressure.pressure_down;
-        in_data.type = RTLS_PRESSURE_TYPE;
-    }
-    else if (p_rx_msg->length == RTLS_RSSI_SET_LEN)
-    {
-        in_data.rssi.rssi = p_msg_params_packed->rssi.rssi;
-        in_data.rssi.tag_id = p_msg_params_packed->rssi.tag_id;
-        in_data.type = RTLS_RSSI_TYPE;
-    }
-
-    p_client->settings.p_callbacks->rtls_status_cb(p_client, &p_rx_msg->meta_data, &in_data);
+    rtls_rssi_client_t * p_client = (rtls_rssi_client_t *) p_args;
+    p_client->settings.p_callbacks->rtls_status_cb(p_client, &p_rx_msg->meta_data);
 }
 
 static const access_opcode_handler_t m_opcode_handlers[] =
 {
-    {ACCESS_OPCODE_SIG(RTLS_OPCODE_STATUS), status_handle},
+    {ACCESS_OPCODE_SIG(RTLS_OPCODE_RSSI2_STATUS), status_handle},
 };
 
-static uint8_t message_set_packet_create(rtls_set_msg_pkt_t *p_set, const rtls_set_params_t * p_params,
-                                      const model_transition_t * p_transition)
-{
-    //__LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Current type: %x\n", p_params->type);
-    if (p_params->type == RTLS_PULSE_TYPE)
-    {
-        p_set->pulse = p_params->pulse;
-        return RTLS_PULSE_SET_LEN;
-    }
-    else if (p_params->type == RTLS_PRESSURE_TYPE)
-    {
-        p_set->pressure.pressure_up = p_params->pressure.pressure_up;
-        p_set->pressure.pressure_down = p_params->pressure.pressure_down;
-        return RTLS_PRESSURE_SET_LEN;
-    }
-    else if (p_params->type == RTLS_RSSI_TYPE)
-    {
-        p_set->rssi.rssi = p_params->rssi.rssi;
-        p_set->rssi.tag_id = p_params->rssi.tag_id;
-        return RTLS_RSSI_SET_LEN;
-    }
-    else
-    {
-        NRF_MESH_ASSERT(0);
-    }
-}
-
-static void message_create(rtls_client_t * p_client, uint16_t tx_opcode, const uint8_t * p_buffer,
+static void message_create(rtls_rssi_client_t * p_client, uint16_t tx_opcode, const uint8_t * p_buffer,
                            uint16_t length, access_message_tx_t *p_message)
 {
     p_message->opcode.opcode = tx_opcode;
@@ -121,7 +72,7 @@ static void message_create(rtls_client_t * p_client, uint16_t tx_opcode, const u
     p_message->access_token = nrf_mesh_unique_token_get();
 }
 
-static void reliable_context_create(rtls_client_t * p_client, uint16_t reply_opcode,
+static void reliable_context_create(rtls_rssi_client_t * p_client, uint16_t reply_opcode,
                                     access_reliable_t * p_reliable)
 {
     p_reliable->model_handle = p_client->model_handle;
@@ -133,7 +84,7 @@ static void reliable_context_create(rtls_client_t * p_client, uint16_t reply_opc
 
 /** Interface functions */
 
-uint32_t rtls_client_init(rtls_client_t * p_client, uint8_t element_index)
+uint32_t rtls_rssi_client_init(rtls_rssi_client_t * p_client, uint8_t element_index)
 {
     if (p_client == NULL ||
         p_client->settings.p_callbacks == NULL ||
@@ -150,7 +101,7 @@ uint32_t rtls_client_init(rtls_client_t * p_client, uint8_t element_index)
 
     access_model_add_params_t add_params =
     {
-        .model_id = ACCESS_MODEL_SIG(RTLS_CLIENT_MODEL_ID),
+        .model_id = ACCESS_MODEL_SIG(RTLS_RSSI_CLIENT_MODEL_ID),
         .element_index = element_index,
         .p_opcode_handlers = &m_opcode_handlers[0],
         .opcode_count = ARRAY_SIZE(m_opcode_handlers),
@@ -164,45 +115,22 @@ uint32_t rtls_client_init(rtls_client_t * p_client, uint8_t element_index)
     {
         status = access_model_subscription_list_alloc(p_client->model_handle);
     }
-
     return status;
 }
 
-uint32_t rtls_client_set(rtls_client_t * p_client, const rtls_set_params_t * p_params,
-                                  const model_transition_t * p_transition)
+uint32_t rtls_rssi_client_set(rtls_rssi_client_t * p_client)
 {
-    if (p_client == NULL || p_params == NULL)
+    if (p_client == NULL)
     {
         return NRF_ERROR_NULL;
     }
 
     if (access_reliable_model_is_free(p_client->model_handle))
     {
-        uint8_t server_msg_length = message_set_packet_create(&p_client->msg_pkt.set, p_params, p_transition);
-        
-
-        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Sending len: %d\n", server_msg_length);
-        __LOG_XB(LOG_SRC_APP, LOG_LEVEL_INFO, "Sending msg: ", (const uint8_t *)&p_client->msg_pkt.set, server_msg_length);
-
-        uint16_t opcode = 0;
-        if (server_msg_length == RTLS_PULSE_SET_LEN)
-        {
-            opcode = RTLS_OPCODE_PULSE_SET;
-        }
-        else if (server_msg_length == RTLS_PRESSURE_SET_LEN)
-        {
-            opcode = RTLS_OPCODE_PRESSURE_SET;
-        }
-        else if (server_msg_length == RTLS_RSSI_SET_LEN)
-        {
-            opcode = RTLS_OPCODE_RSSI_SET;
-        }
-        NRF_MESH_ASSERT(opcode);
-
-        message_create(p_client, opcode, (const uint8_t *) &p_client->msg_pkt.set,
-                       server_msg_length, &p_client->access_message.message);
-        reliable_context_create(p_client, RTLS_OPCODE_STATUS, &p_client->access_message);
-
+        message_create(p_client, RTLS_OPCODE_RSSI2_SET, NULL,
+                       0, &p_client->access_message.message);
+        reliable_context_create(p_client, RTLS_OPCODE_RSSI2_STATUS, &p_client->access_message);
+        access_model_publish_ttl_set(p_client->model_handle, 0);
         return access_model_reliable_publish(&p_client->access_message);
     }
     else
@@ -211,35 +139,17 @@ uint32_t rtls_client_set(rtls_client_t * p_client, const rtls_set_params_t * p_p
     }
 }
 
-uint32_t rtls_client_set_unack(rtls_client_t * p_client, const rtls_set_params_t * p_params,
-                                        const model_transition_t * p_transition, uint8_t repeats)
+uint32_t rtls_rssi_client_set_unack(rtls_rssi_client_t * p_client, uint8_t repeats)
 {
-    if (p_client == NULL || p_params == NULL)
+    if (p_client == NULL)
     {
         return NRF_ERROR_NULL;
     }
 
-    rtls_set_msg_pkt_t msg;
-    uint8_t server_msg_length = message_set_packet_create(&msg, p_params, p_transition);
+    uint8_t server_msg_length = 0;
 
-    __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "rtls_client_set_unack: Sending len: %d\n", server_msg_length);
-    uint16_t opcode = 0;
-    if (server_msg_length == RTLS_PULSE_SET_LEN)
-    {
-        opcode = RTLS_OPCODE_PULSE_SET_UNACKNOWLEDGED;
-    }
-    else if (server_msg_length == RTLS_PRESSURE_SET_LEN)
-    {
-        opcode = RTLS_OPCODE_PRESSURE_SET_UNACKNOWLEDGED;
-    }
-    else if (server_msg_length == RTLS_RSSI_SET_LEN)
-    {
-        opcode = RTLS_OPCODE_RSSI_SET_UNACKNOWLEDGED;
-    }
-    NRF_MESH_ASSERT(opcode);
-
-    message_create(p_client, opcode, (const uint8_t *) &msg, server_msg_length, &p_client->access_message.message);
-
+    message_create(p_client, RTLS_OPCODE_RSSI2_SET_UNACKNOWLEDGED, NULL, 0, &p_client->access_message.message);
+    access_model_publish_ttl_set(p_client->model_handle, 0);
     uint32_t status = NRF_SUCCESS;
     repeats++;
     while (repeats-- > 0 && status == NRF_SUCCESS)
