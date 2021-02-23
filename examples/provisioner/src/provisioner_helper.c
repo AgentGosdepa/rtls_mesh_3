@@ -75,6 +75,7 @@ static bool m_provisioner_init_done;
 /* Forward declaration */
 static void prov_evt_handler(const nrf_mesh_prov_evt_t * p_evt);
 
+extern uint8_t data;
 static uint16_t next_target_address_get(void)
 {
     uint16_t target_address;
@@ -114,16 +115,18 @@ static uint16_t next_target_address_get(void)
         target_address = SENSOR_INITIAL_ADDRESS + m_provisioner.p_nw_data->sensor_server_counter;
         m_provisioner.p_nw_data->sensor_server_counter++;
     }
-    
+
     else if (strcmp(EX_URI_RTLS_BEACON, m_provisioner.p_nw_data->current_uri) == 0)
     {
         target_address = RTLS_INITIAL_ADDRESS + m_provisioner.p_nw_data->sensor_server_counter;
         m_provisioner.p_nw_data->sensor_server_counter++;
+        data = m_provisioner.p_nw_data->sensor_server_counter - 1;
     }
     else if (strcmp(EX_URI_RTLS_PC, m_provisioner.p_nw_data->current_uri) == 0)
     {
         target_address = RTLS_INITIAL_ADDRESS + m_provisioner.p_nw_data->sensor_server_counter;
         m_provisioner.p_nw_data->sensor_server_counter++;
+        data = m_provisioner.p_nw_data->sensor_server_counter - 1;
     }
     else
     {

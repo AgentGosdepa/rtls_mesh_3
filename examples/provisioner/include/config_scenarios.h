@@ -291,3 +291,7 @@ of the steps can be done in @ref setup_select_steps() function.
     NODE_SETUP_DONE
 
 #endif /* CONFIG_SCENARIOS_H_ */
+
+//CONFIG_SCENARIO_RTLS_PC_EXAMPLE
+//CONFIG_SCENARIO_RTLS_DONGLE_EXAMPLE
+//CONFIG_SCENARIO_RTLS_BEACON_EXAMPLE

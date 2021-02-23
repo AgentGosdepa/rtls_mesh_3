@@ -360,13 +360,15 @@ static void button_event_handler(uint32_t button_number)
                                             set_params.rssi.tag_id);
             break;
         case 4:
-
+            if (0)
+            {
             set_params.type = RTLS_RSSI_TYPE;
             set_params.rssi.rssi = 0xAA;
             set_params.rssi.tag_id = 0xAABB;
             __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Transfering data: rssi = 0x%x addr = 0x%x start.\n", 
                                             set_params.rssi.rssi,
                                             set_params.rssi.tag_id);
+            }
             break;
 #endif
     }
@@ -395,6 +397,22 @@ static void button_event_handler(uint32_t button_number)
 #endif
             break;
         case 4:
+        status = NRF_SUCCESS;
+            if (mesh_stack_is_device_provisioned())
+            {
+                #if MESH_FEATURE_GATT_PROXY_ENABLED
+                (void) proxy_stop();
+                #endif
+                mesh_stack_config_clear();
+                node_reset();
+            }
+            else
+            {
+                __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "The device is unprovisioned. Resetting has no effect.\n");
+            }
+
+        if (0)
+        {
 #ifdef BEACON
             (void)access_model_reliable_cancel(m_clients[0].model_handle);
             status = rtls_client_set(&m_clients[0], &set_params, NULL);
@@ -403,6 +421,7 @@ static void button_event_handler(uint32_t button_number)
             status = rtls_rssi_client_set_unack(m_rssi_clients, 2);
             hal_led_blink_ms(BSP_LED_3, 200, 2);
 #endif
+        }
             break;
         default:
             __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, m_usage_string);

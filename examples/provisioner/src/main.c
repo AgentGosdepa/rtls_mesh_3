@@ -367,6 +367,8 @@ static const char m_usage_string[] =
     "\t\t--------------------------------------------------------------------------------\n";
 #endif
 
+
+uint8_t data;
 static void button_event_handler(uint32_t button_number)
 {
     /* Increase button number because the buttons on the board is marked with 1 to 4 */
@@ -386,8 +388,13 @@ static void button_event_handler(uint32_t button_number)
             provisioning_resume();
             break;
         }
-
-        /* Initiate node reset */
+        case 3:
+        {
+            __LOG_XB(LOG_SRC_APP, LOG_LEVEL_INFO, "[netkey]: ", (const uint8_t *)&m_nw_state.netkey, NRF_MESH_KEY_SIZE);
+            __LOG_XB(LOG_SRC_APP, LOG_LEVEL_INFO, "[appkey]: ", (const uint8_t *)&m_nw_state.appkey, NRF_MESH_KEY_SIZE);
+            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "\n[netkey]: 0x%x\n, [appkey]: 0x%x\n, [count]: %d\n-----------------\n\n", m_nw_state.netkey, m_nw_state.appkey, data);
+            break;
+        }        /* Initiate node reset */
         case 4:
         {
             if (!mesh_stack_is_device_provisioned())

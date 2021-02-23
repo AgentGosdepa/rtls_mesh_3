@@ -618,10 +618,10 @@ static void config_step_execute(void)
             config_publication_state_t pubstate = {0};
             status = pub_state_set(&pubstate,
                                    m_current_element_addr,
-                                   0xFFFF,
+                                   RTLS_CLIENT_PUB_GROUP_ADDRESS,
                                    publish_period);
             __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Setting publication address to 0x%04x for %s on element address 0x%04x\n",
-                  0xFFFF,
+                  RTLS_CLIENT_PUB_GROUP_ADDRESS,
                   model_name_by_id_get(mp_config_step->model_id),
                   m_current_element_addr);
             break;
@@ -662,7 +662,12 @@ static void config_step_execute(void)
         }
         case NODE_SETUP_CONFIG_SUBSCRIPTION_RTLS_RSSI_SERVER:
         {
-            status = NRF_SUCCESS;
+            status = sub_state_set(m_current_element_addr,
+                                   RTLS_CLIENT_PUB_GROUP_ADDRESS);
+            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Adding subscription to address 0x%04x for %s on element address 0x%04x\n",
+                  RTLS_CLIENT_PUB_GROUP_ADDRESS,
+                  model_name_by_id_get(mp_config_step->model_id),
+                  m_current_element_addr);
             break;
         }
         case NODE_SETUP_CONFIG_SUBSCRIPTION_LC_SERVER_ON_SENSOR_STATUS:
