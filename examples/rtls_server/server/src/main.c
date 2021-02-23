@@ -124,7 +124,7 @@ static uint8_t uart_len1, uart_len2;
 static void app_rtls_server_set_cb(const app_rtls_server_t * p_app, const rtls_set_params_t * set_data, 
                                                                 const access_message_rx_meta_t * p_meta)
 {
-    __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "current type %x.\n", set_data->type);
+    //__LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "current type %x.\n", set_data->type);
     if (set_data->type == RTLS_PULSE_TYPE)
     {
         __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Coming data: type - 0x%x, from: 0x%x, 0x%x complete.\n", 
@@ -167,6 +167,8 @@ static void app_rtls_server_set_cb(const app_rtls_server_t * p_app, const rtls_s
     {
         NRF_MESH_ASSERT(0);
     }
+
+    __LOG_XB(LOG_SRC_APP, LOG_LEVEL_INFO, "DATA TO UART: ", uart_buff1, uart_len1);
     nrf_mesh_serial_tx(uart_buff1, uart_len1);
 }
 
@@ -395,8 +397,8 @@ static void mesh_init(void)
 static void initialize(void)
 {
     //__LOG_INIT(0, 0, LOG_CALLBACK_DEFAULT);
-    __LOG_INIT(LOG_SRC_APP | LOG_SRC_ACCESS | LOG_SRC_BEARER, LOG_LEVEL_INFO | LOG_LEVEL_DBG1, LOG_CALLBACK_DEFAULT);
-    //__LOG_INIT(LOG_SRC_APP | LOG_SRC_FRIEND, LOG_LEVEL_DBG1, LOG_CALLBACK_DEFAULT);
+    //__LOG_INIT(LOG_SRC_APP | LOG_SRC_ACCESS | LOG_SRC_BEARER, LOG_LEVEL_INFO | LOG_LEVEL_DBG1, LOG_CALLBACK_DEFAULT);
+    __LOG_INIT(LOG_SRC_APP | LOG_SRC_FRIEND, LOG_LEVEL_DBG1, LOG_CALLBACK_DEFAULT);
     __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "----- BLE Mesh Light Switch Server Demo -----\n");
 
     ERROR_CHECK(app_timer_init());

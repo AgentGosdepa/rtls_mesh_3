@@ -121,7 +121,7 @@ static void handle_set(access_model_handle_t model_handle, const access_message_
         in_data.type = RTLS_RSSI_TYPE;
     }
 
-    __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Current opcode: %x\n", p_rx_msg->opcode.opcode);
+    //__LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Current opcode: %x\n", p_rx_msg->opcode.opcode);
 
     p_server->settings.p_callbacks->rtls_cbs.set_cb(p_server, &p_rx_msg->meta_data,
                             &in_data, NULL, (p_rx_msg->opcode.opcode == RTLS_OPCODE_PULSE_SET) 
