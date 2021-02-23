@@ -43,16 +43,16 @@
 #include "rtls_rssi_common.h"
 #include "model_common.h"
 
-#define RTLS_RSSI_SERVER_MODEL_ID 0x1004
+#define RTLS_RSSI_SERVER_MODEL_ID 0x00F3
 
 typedef struct __rtls_rssi_server_t rtls_rssi_server_t;
 
-typedef void (*rtls_state_set_cb_t)(const rtls_rssi_server_t * p_self,
+typedef void (* rtls_rssi_state_set_cb_t)(const rtls_rssi_server_t * p_self,
                                              const access_message_rx_meta_t * p_meta);
 
 typedef struct
 {
-    rtls_state_set_cb_t    set_cb;
+    rtls_rssi_state_set_cb_t    set_cb;
 } rtls_rssi_server_state_cbs_t;
 
 typedef struct

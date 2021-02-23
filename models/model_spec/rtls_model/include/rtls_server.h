@@ -43,7 +43,7 @@
 #include "rtls_common.h"
 #include "model_common.h"
 
-#define RTLS_SERVER_MODEL_ID 0x1000
+#define RTLS_SERVER_MODEL_ID 0x00F1
 
 typedef struct __rtls_server_t rtls_server_t;
 

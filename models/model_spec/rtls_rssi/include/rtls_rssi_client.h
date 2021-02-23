@@ -45,7 +45,7 @@
 #include "rtls_rssi_common.h"
 #include "rtls_rssi_messages.h"
 
-#define RTLS_RSSI_CLIENT_MODEL_ID 0x1005
+#define RTLS_RSSI_CLIENT_MODEL_ID 0x00F2
 
 typedef struct __rtls_rssi_client_t rtls_rssi_client_t;
 

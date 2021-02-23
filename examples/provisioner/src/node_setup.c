@@ -61,7 +61,12 @@
 #include "light_ctl_client.h"
 #include "sensor_setup_server.h"
 #include "sensor_client.h"
-
+//-------------------------
+#include "rtls_client.h"
+#include "rtls_server.h"
+#include "rtls_rssi_client.h"
+#include "rtls_rssi_server.h"
+//-------------------------
 #include "provisioner_helper.h"
 #include "node_setup.h"
 #include "example_common.h"
@@ -142,6 +147,10 @@ static const prov_cfg_t m_sensor_server[] = {DECLARE_CONFIGURATION(CONFIG_SCENAR
 static const prov_cfg_t m_sensor_client[] = {DECLARE_CONFIGURATION(CONFIG_SCENARIO_SENSOR_CLIENT_EXAMPLE)};
 static const prov_cfg_t m_lpn_client[]    = {DECLARE_CONFIGURATION(CONFIG_SCENARIO_LPN_EXAMPLE)};
 
+static const prov_cfg_t m_rtls_beacon[] = {DECLARE_CONFIGURATION(CONFIG_SCENARIO_RTLS_BEACON_EXAMPLE)};
+static const prov_cfg_t m_rtls_dongle[] = {DECLARE_CONFIGURATION(CONFIG_SCENARIO_RTLS_DONGLE_EXAMPLE)};
+static const prov_cfg_t m_rtls_pc[] = {DECLARE_CONFIGURATION(CONFIG_SCENARIO_RTLS_PC_EXAMPLE)};
+
 static const prov_scenario_t m_scenarios[] =
 {
     {EX_URI_ENOCEAN,       m_onoff_client},
@@ -157,7 +166,11 @@ static const prov_scenario_t m_scenarios[] =
     {EX_URI_CTL_LC_SERVER, m_ctl_lc_server},
     {EX_URI_CTL_CLIENT,    m_ctl_client},
     {EX_URI_SENSOR_SERVER, m_sensor_server},
-    {EX_URI_SENSOR_CLIENT, m_sensor_client}
+    {EX_URI_SENSOR_CLIENT, m_sensor_client},
+
+    {EX_URI_RTLS_BEACON,    m_rtls_beacon},
+    {EX_URI_RTLS_DONGLE, m_rtls_dongle},
+    {EX_URI_RTLS_PC, m_rtls_pc}
 };
 
 static uint16_t m_current_node_addr;
@@ -399,6 +412,15 @@ static const char * model_name_by_id_get(uint16_t model_id)
             return "Sensor setup server";
         case SENSOR_CLIENT_MODEL_ID:
             return "Sensor client";
+
+        case RTLS_CLIENT_MODEL_ID:
+            return "RTLS_CLIENT_MODEL_ID";
+        case RTLS_SERVER_MODEL_ID:
+            return "RTLS_SERVER_MODEL_ID";
+        case RTLS_RSSI_CLIENT_MODEL_ID:
+            return "RTLS_RSSI_CLIENT_MODEL_ID";
+        case RTLS_RSSI_SERVER_MODEL_ID:
+            return "RTLS_RSSI_SERVER_MODEL_ID";
         default:
             return "Unknown model";
     }
@@ -411,7 +433,7 @@ static const char * model_name_by_id_get(uint16_t model_id)
 static void config_step_execute(void)
 {
     uint32_t status = NRF_ERROR_INVALID_STATE;
-
+    __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "mp_config_step->step %d\n", mp_config_step->step);
     switch (mp_config_step->step)
     {
         /* Read the composition data from the node: */
@@ -453,7 +475,6 @@ static void config_step_execute(void)
             status = NRF_SUCCESS;
             break;
         }
-
         /* Bind server to the application key: */
         case NODE_SETUP_CONFIG_APPKEY_BIND_SENSOR_SERVER:
         case NODE_SETUP_CONFIG_APPKEY_BIND_SENSOR_SETUP_SERVER:
@@ -475,6 +496,11 @@ static void config_step_execute(void)
         case NODE_SETUP_CONFIG_APPKEY_BIND_LL_CLIENT:
         case NODE_SETUP_CONFIG_APPKEY_BIND_CTL_CLIENT:
         case NODE_SETUP_CONFIG_APPKEY_BIND_SENSOR_CLIENT:
+
+        case NODE_SETUP_CONFIG_APPKEY_BIND_RTLS_MODEL_CLIENT:
+        case NODE_SETUP_CONFIG_APPKEY_BIND_RTLS_MODEL_SERVER:
+        case NODE_SETUP_CONFIG_APPKEY_BIND_RTLS_RSSI_CLIENT:
+        case NODE_SETUP_CONFIG_APPKEY_BIND_RTLS_RSSI_SERVER:
         {
             __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "App key bind: %s on element address 0x%04x\n",
                   model_name_by_id_get(mp_config_step->model_id), m_current_element_addr);
@@ -537,7 +563,6 @@ static void config_step_execute(void)
                   m_current_element_addr);
             break;
         }
-
         /* The sensor server should publish state on the same address as a client
          * since the LC server is a consumer of these messages.  */
         case NODE_SETUP_CONFIG_PUBLICATION_LEVEL_CLIENT:
@@ -563,7 +588,44 @@ static void config_step_execute(void)
                   m_current_element_addr);
             break;
         }
+//------------------------------------
+        case NODE_SETUP_CONFIG_PUBLICATION_RTLS_MODEL_CLIENT:
+        {
+            access_publish_period_t publish_period =
+            {
+                .step_num = 0,
+                .step_res = ACCESS_PUBLISH_RESOLUTION_100MS
+            };
+            config_publication_state_t pubstate = {0};
 
+            status = pub_state_set(&pubstate,
+                                   m_current_element_addr,
+                                   RTLS_CLIENT_PUB_GROUP_ADDRESS,
+                                   publish_period);
+            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Setting publication address to 0x%04x for %s on element address 0x%04x\n",
+                  RTLS_CLIENT_PUB_GROUP_ADDRESS,
+                  model_name_by_id_get(mp_config_step->model_id),
+                  m_current_element_addr);
+            break;
+        }
+        case NODE_SETUP_CONFIG_PUBLICATION_RTLS_RSSI_CLIENT:
+        {
+            access_publish_period_t publish_period =
+            {
+                .step_num = 0,
+                .step_res = ACCESS_PUBLISH_RESOLUTION_100MS
+            };
+            config_publication_state_t pubstate = {0};
+            status = pub_state_set(&pubstate,
+                                   m_current_element_addr,
+                                   0xFFFF,
+                                   publish_period);
+            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Setting publication address to 0x%04x for %s on element address 0x%04x\n",
+                  0xFFFF,
+                  model_name_by_id_get(mp_config_step->model_id),
+                  m_current_element_addr);
+            break;
+        }
         case NODE_SETUP_CONFIG_SUBSCRIPTION_LEVEL_SERVER:
         case NODE_SETUP_CONFIG_SUBSCRIPTION_ONOFF_SERVER:
         case NODE_SETUP_CONFIG_SUBSCRIPTION_LL_SERVER:
@@ -587,7 +649,22 @@ static void config_step_execute(void)
                   m_current_element_addr);
             break;
         }
-
+//-------------------------------
+        case NODE_SETUP_CONFIG_SUBSCRIPTION_RTLS_MODEL_SERVER:
+        {
+            status = sub_state_set(m_current_element_addr,
+                                   RTLS_CLIENT_PUB_GROUP_ADDRESS);
+            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Adding subscription to address 0x%04x for %s on element address 0x%04x\n",
+                  RTLS_CLIENT_PUB_GROUP_ADDRESS,
+                  model_name_by_id_get(mp_config_step->model_id),
+                  m_current_element_addr);
+            break;
+        }
+        case NODE_SETUP_CONFIG_SUBSCRIPTION_RTLS_RSSI_SERVER:
+        {
+            status = NRF_SUCCESS;
+            break;
+        }
         case NODE_SETUP_CONFIG_SUBSCRIPTION_LC_SERVER_ON_SENSOR_STATUS:
         {
             status = sub_state_set(m_current_element_addr,
@@ -615,10 +692,10 @@ static void config_step_execute(void)
         }
 
         default:
+        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "default %d\n", mp_config_step->step);
             ERROR_CHECK(NRF_ERROR_NOT_FOUND);
             break;
     }
-
     if (status != NRF_SUCCESS)
     {
         config_client_pending_msg_cancel();
@@ -628,6 +705,7 @@ static void config_step_execute(void)
         }
         else
         {
+            __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "fack\n");
             node_setup_fail();
         }
     }

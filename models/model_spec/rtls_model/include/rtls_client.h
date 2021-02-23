@@ -45,7 +45,7 @@
 #include "rtls_common.h"
 #include "rtls_messages.h"
 
-#define RTLS_CLIENT_MODEL_ID 0x1001
+#define RTLS_CLIENT_MODEL_ID 0x00F0
 
 typedef struct __rtls_client_t rtls_client_t;
 

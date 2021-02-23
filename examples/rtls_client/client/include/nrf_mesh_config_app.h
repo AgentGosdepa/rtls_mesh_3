@@ -257,6 +257,8 @@
 #define EX_URI_SERIAL        URI_SCHEME_EXAMPLE "URI for Serial example"
 #define EX_URI_SENSOR_SERVER URI_SCHEME_EXAMPLE "URI for Sensor Server example"
 #define EX_URI_SENSOR_CLIENT URI_SCHEME_EXAMPLE "URI for Sensor Client example"
+#define EX_URI_RTLS_BEACON URI_SCHEME_EXAMPLE "URI for RTLS_BEACON example"
+#define EX_URI_RTLS_DONGLE URI_SCHEME_EXAMPLE "URI for RTLS_DONGLE example"
 
 /** Static authentication data. */
 #define STATIC_AUTH_DATA {0x6E, 0x6F, 0x72, 0x64, 0x69, 0x63, 0x5F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x5F, 0x31}

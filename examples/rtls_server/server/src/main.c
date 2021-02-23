@@ -85,7 +85,7 @@
 /* Controls the MIC size used by the model instance for sending the mesh messages. */
 #define APP_MIC_SIZE                (NRF_MESH_TRANSMIC_SIZE_SMALL)
 
-
+#define EX_URI_RTLS_PC URI_SCHEME_EXAMPLE "URI for RTLS_PC example"
 /*****************************************************************************
  * Forward declaration of static functions
  *****************************************************************************/
@@ -431,7 +431,8 @@ static void start(void)
             .prov_device_identification_start_cb = device_identification_start_cb,
             .prov_device_identification_stop_cb = NULL,
             .prov_abort_cb = provisioning_aborted_cb,
-            .p_device_uri = EX_URI_LS_SERVER
+            .p_device_uri = EX_URI_RTLS_PC
+            //.p_device_uri = EX_URI_LS_SERVER
         };
         ERROR_CHECK(mesh_provisionee_prov_start(&prov_start_params));
     }

@@ -552,7 +552,13 @@ static void start(void)
             .prov_device_identification_start_cb = device_identification_start_cb,
             .prov_device_identification_stop_cb = NULL,
             .prov_abort_cb = provisioning_aborted_cb,
+#ifdef DONGLE
+            .p_device_uri = EX_URI_RTLS_DONGLE
+#elif defined BEACON
+            .p_device_uri = EX_URI_RTLS_BEACON
+#else
             .p_device_uri = EX_URI_LS_CLIENT
+#endif
         };
         ERROR_CHECK(mesh_provisionee_prov_start(&prov_start_params));
     }

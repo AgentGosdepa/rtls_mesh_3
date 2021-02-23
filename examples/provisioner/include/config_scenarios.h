@@ -172,6 +172,25 @@ typedef enum
     NODE_SETUP_CONFIG_PUBLICATION_SENSOR_CLIENT, \
     NODE_SETUP_CONFIG_SUBSCRIPTION_SENSOR_CLIENT
 
+
+//---------------------
+
+#define CONFIG_RTLS_MODEL_CLIENT                      \
+    NODE_SETUP_CONFIG_APPKEY_BIND_RTLS_MODEL_CLIENT,  \
+    NODE_SETUP_CONFIG_PUBLICATION_RTLS_MODEL_CLIENT
+
+#define CONFIG_RTLS_RSSI_CLIENT                      \
+    NODE_SETUP_CONFIG_APPKEY_BIND_RTLS_RSSI_CLIENT,  \
+    NODE_SETUP_CONFIG_PUBLICATION_RTLS_RSSI_CLIENT
+
+#define CONFIG_RTLS_MODEL_SERVER                      \
+    NODE_SETUP_CONFIG_APPKEY_BIND_RTLS_MODEL_SERVER,  \
+    NODE_SETUP_CONFIG_SUBSCRIPTION_RTLS_MODEL_SERVER
+
+#define CONFIG_RTLS_RSSI_SERVER                      \
+    NODE_SETUP_CONFIG_APPKEY_BIND_RTLS_RSSI_SERVER,  \
+    NODE_SETUP_CONFIG_SUBSCRIPTION_RTLS_RSSI_SERVER
+
 /* USER_NOTE:
 You can define one or more such configuration steps for a given node in your network. The choice
 of the steps can be done in @ref setup_select_steps() function.
@@ -250,6 +269,25 @@ of the steps can be done in @ref setup_select_steps() function.
     CONFIG_SCENARIO_COMMON,                    \
     CONFIG_SENSOR_CLIENT,                      \
     CONFIG_SENSOR_CLIENT,                      \
+    NODE_SETUP_DONE
+
+//-----------------------
+#define CONFIG_SCENARIO_RTLS_BEACON_EXAMPLE    \
+    CONFIG_SCENARIO_COMMON,                            \
+    CONFIG_RTLS_MODEL_CLIENT,                               \
+    CONFIG_RTLS_RSSI_SERVER,                               \
+    NODE_SETUP_DONE
+
+#define CONFIG_SCENARIO_RTLS_DONGLE_EXAMPLE    \
+    CONFIG_SCENARIO_COMMON,                            \
+    CONFIG_RTLS_MODEL_CLIENT,                               \
+    CONFIG_RTLS_RSSI_CLIENT,                               \
+    NODE_SETUP_DONE
+
+
+#define CONFIG_SCENARIO_RTLS_PC_EXAMPLE    \
+    CONFIG_SCENARIO_COMMON,                            \
+    CONFIG_RTLS_MODEL_SERVER,                               \
     NODE_SETUP_DONE
 
 #endif /* CONFIG_SCENARIOS_H_ */
