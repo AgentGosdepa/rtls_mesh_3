@@ -89,7 +89,8 @@ uint32_t rtls_rssi_client_init(rtls_rssi_client_t * p_client, uint8_t element_in
     if (p_client == NULL ||
         p_client->settings.p_callbacks == NULL ||
         p_client->settings.p_callbacks->rtls_status_cb == NULL ||
-        p_client->settings.p_callbacks->ack_transaction_status_cb == NULL)
+        p_client->settings.p_callbacks->ack_transaction_status_cb == NULL||
+        p_client->settings.p_callbacks->periodic_publish_cb == NULL)
     {
         return NRF_ERROR_NULL;
     }
@@ -106,7 +107,7 @@ uint32_t rtls_rssi_client_init(rtls_rssi_client_t * p_client, uint8_t element_in
         .p_opcode_handlers = &m_opcode_handlers[0],
         .opcode_count = ARRAY_SIZE(m_opcode_handlers),
         .p_args = p_client,
-        .publish_timeout_cb = NULL
+        .publish_timeout_cb = p_client->settings.p_callbacks->periodic_publish_cb
     };
 
     uint32_t status = access_model_add(&add_params, &p_client->model_handle);
@@ -115,6 +116,9 @@ uint32_t rtls_rssi_client_init(rtls_rssi_client_t * p_client, uint8_t element_in
     {
         status = access_model_subscription_list_alloc(p_client->model_handle);
     }
+
+    access_model_publish_period_set(p_client->model_handle, ACCESS_PUBLISH_RESOLUTION_1S, 2);
+
     return status;
 }
 

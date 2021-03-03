@@ -74,6 +74,7 @@ struct __rtls_server_t
 {
     access_model_handle_t model_handle;
     rtls_server_settings_t settings;
+    tid_tracker_t tid_tracker;
 };
 
 uint32_t rtls_server_init(rtls_server_t * p_server, uint8_t element_index);

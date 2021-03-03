@@ -71,6 +71,7 @@ struct __rtls_rssi_server_t
 {
     access_model_handle_t model_handle;
     rtls_rssi_server_settings_t settings;
+    tid_tracker_t tid_tracker;
 };
 
 uint32_t rtls_rssi_server_init(rtls_rssi_server_t * p_server, uint8_t element_index);

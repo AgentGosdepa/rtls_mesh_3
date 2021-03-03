@@ -101,6 +101,8 @@ static void app_rtls_rssi_client_status_cb(const rtls_rssi_client_t * p_self,
 static void app_rtls_rssi_client_transaction_status_cb(access_model_handle_t model_handle,
                                                        void * p_args,
                                                        access_reliable_status_t status);
+
+static void app_rtls_rssi_client_periodic_cb(access_model_handle_t handle, void * p_args);
 #endif
 
 #ifdef BEACON
@@ -129,7 +131,8 @@ static rtls_rssi_client_t m_rssi_clients[1];
 const rtls_rssi_client_callbacks_t rssi_client_cbs =
 {
     .rtls_status_cb = app_rtls_rssi_client_status_cb,
-    .ack_transaction_status_cb = app_rtls_rssi_client_transaction_status_cb
+    .ack_transaction_status_cb = app_rtls_rssi_client_transaction_status_cb,
+    .periodic_publish_cb = app_rtls_rssi_client_periodic_cb
 };
 #endif
 
@@ -225,6 +228,12 @@ static void app_rtls_rssi_client_transaction_status_cb(access_model_handle_t mod
             break;
     }
 }
+
+static void app_rtls_rssi_client_periodic_cb(access_model_handle_t handle, void * p_args)
+{
+    rtls_rssi_client_set_unack(m_rssi_clients, 2);
+}
+
 #endif
 
 #ifdef BEACON
@@ -328,6 +337,8 @@ static const char m_usage_string[] =
 static void button_event_handler(uint32_t button_number)
 {
     /* Increase button number because the buttons on the board is marked with 1 to 4 */
+
+
     button_number++;
     __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Button %u pressed\n", button_number);
 
@@ -382,7 +393,7 @@ static void button_event_handler(uint32_t button_number)
 
         case 2:
             (void)access_model_reliable_cancel(m_clients[0].model_handle);
-            status = rtls_client_set(&m_clients[0], &set_params, NULL);
+            status = rtls_client_set_unack(&m_clients[0], &set_params, NULL, 2);
             hal_led_blink_ms(BSP_LED_3, 200, 2);
             break;
 

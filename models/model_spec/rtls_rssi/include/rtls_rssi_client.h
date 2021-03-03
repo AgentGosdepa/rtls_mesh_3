@@ -55,6 +55,7 @@ typedef struct
 {
     rtls_rssi_state_status_cb_t rtls_status_cb;
     access_reliable_cb_t ack_transaction_status_cb;
+    access_publish_timeout_cb_t periodic_publish_cb;
 } rtls_rssi_client_callbacks_t;
 
 typedef struct
