@@ -105,17 +105,23 @@ static void handle_set(access_model_handle_t model_handle, const access_message_
 
     if (p_rx_msg->length == RTLS_PULSE_SET_LEN)
     {
+        if (!model_tid_validate(&p_server->tid_tracker, &p_rx_msg->meta_data, RTLS_OPCODE_PULSE_SET, p_msg_params_packed->tid))
+            return;
         in_data.pulse = p_msg_params_packed->pulse;
         in_data.type = RTLS_PULSE_TYPE;
     }
     else if (p_rx_msg->length == RTLS_PRESSURE_SET_LEN)
     {
+        if (!model_tid_validate(&p_server->tid_tracker, &p_rx_msg->meta_data, RTLS_OPCODE_PRESSURE_SET, p_msg_params_packed->tid))
+            return;
         in_data.pressure.pressure_up = p_msg_params_packed->pressure.pressure_up;
         in_data.pressure.pressure_down = p_msg_params_packed->pressure.pressure_down;
         in_data.type = RTLS_PRESSURE_TYPE;
     }
     else if (p_rx_msg->length == RTLS_RSSI_SET_LEN)
     {
+        if (!model_tid_validate(&p_server->tid_tracker, &p_rx_msg->meta_data, RTLS_OPCODE_RSSI_SET, p_msg_params_packed->tid))
+            return;
         in_data.rssi.rssi = p_msg_params_packed->rssi.rssi;
         in_data.rssi.tag_id = p_msg_params_packed->rssi.tag_id;
         in_data.type = RTLS_RSSI_TYPE;

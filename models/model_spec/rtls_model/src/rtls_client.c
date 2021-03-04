@@ -49,6 +49,8 @@
 
 #include "log.h"
 
+static uint8_t tid = 0;
+
 static void status_handle(access_model_handle_t handle, const access_message_rx_t * p_rx_msg, void * p_args)
 {
     rtls_client_t * p_client = (rtls_client_t *) p_args;
@@ -89,24 +91,28 @@ static uint8_t message_set_packet_create(rtls_set_msg_pkt_t *p_set, const rtls_s
     if (p_params->type == RTLS_PULSE_TYPE)
     {
         p_set->pulse = p_params->pulse;
+        p_set->tid = tid;
         return RTLS_PULSE_SET_LEN;
     }
     else if (p_params->type == RTLS_PRESSURE_TYPE)
     {
         p_set->pressure.pressure_up = p_params->pressure.pressure_up;
         p_set->pressure.pressure_down = p_params->pressure.pressure_down;
+        p_set->tid = tid;
         return RTLS_PRESSURE_SET_LEN;
     }
     else if (p_params->type == RTLS_RSSI_TYPE)
     {
         p_set->rssi.rssi = p_params->rssi.rssi;
         p_set->rssi.tag_id = p_params->rssi.tag_id;
+        p_set->tid = tid;
         return RTLS_RSSI_SET_LEN;
     }
     else
     {
         NRF_MESH_ASSERT(0);
     }
+    tid++;
 }
 
 static void message_create(rtls_client_t * p_client, uint16_t tx_opcode, const uint8_t * p_buffer,

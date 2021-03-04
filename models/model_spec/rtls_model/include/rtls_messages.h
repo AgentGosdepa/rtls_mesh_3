@@ -40,9 +40,9 @@
 
 #include <stdint.h>
 
-#define RTLS_PULSE_SET_LEN 1
-#define RTLS_PRESSURE_SET_LEN 2
-#define RTLS_RSSI_SET_LEN 3
+#define RTLS_PULSE_SET_LEN 2
+#define RTLS_PRESSURE_SET_LEN 3
+#define RTLS_RSSI_SET_LEN 4
 
 typedef enum
 {
@@ -55,38 +55,45 @@ typedef enum
     RTLS_OPCODE_STATUS = 0x8204
 } rtls_opcode_t;
 
-typedef union __attribute((packed))
+typedef struct __attribute((packed))
 {
-	uint8_t pulse;
-
-	struct __attribute((packed))
+	uint8_t tid;
+	union __attribute((packed))
 	{
-		uint8_t pressure_up;
-		uint8_t pressure_down;
-	} pressure;
+		uint8_t pulse;
 
-	struct __attribute((packed))
-	{
-		uint16_t tag_id;
-		uint8_t rssi;
-	} rssi;
+		struct __attribute((packed))
+		{
+			uint8_t pressure_up;
+			uint8_t pressure_down;
+		} pressure;
+
+		struct __attribute((packed))
+		{
+			uint16_t tag_id;
+			uint8_t rssi;
+		} rssi;
+	};
 } rtls_set_msg_pkt_t;
 
 typedef union __attribute((packed))
 {
-	uint8_t pulse;
-
-	struct __attribute((packed))
+	uint8_t tid;
+	union __attribute((packed))
 	{
-		uint8_t pressure_up;
-		uint8_t pressure_down;
-	} pressure;
+		uint8_t pulse;
+		struct __attribute((packed))
+		{
+			uint8_t pressure_up;
+			uint8_t pressure_down;
+		} pressure;
 
-	struct __attribute((packed))
-	{
-		uint16_t tag_id;
-		uint8_t rssi;
-	} rssi;
+		struct __attribute((packed))
+		{
+			uint16_t tag_id;
+			uint8_t rssi;
+		} rssi;
+	};
 } rtls_status_msg_pkt_t;
 
 #endif /* RTLS_MESSAGES_H__ */
